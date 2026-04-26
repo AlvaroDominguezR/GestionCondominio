@@ -1,0 +1,158 @@
+// ============================================================
+// schema.prisma — Sistema de Administración de Condominios
+// Stack: Next.js · Tailwind CSS · Shadcn/UI · SQLite · Prisma 5
+// v5 — Schema definitivo
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// Dueno
+// ─────────────────────────────────────────────
+// Propietario legal. Puede tener varios deptos.
+// Puede vivir o no en el departamento.
+// ─────────────────────────────────────────────
+model Dueno {
+  id            Int            @id @default(autoincrement())
+  nombre        String
+  rut           String         @unique
+  telefono      String?
+
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  departamentos Departamento[]
+}
+
+// ─────────────────────────────────────────────
+// Torre
+// ─────────────────────────────────────────────
+// sector: "A" | "B"
+// ─────────────────────────────────────────────
+model Torre {
+  id            Int            @id @default(autoincrement())
+  nombre        String         @unique  // Ej: "Torre 1A", "Torre 2B"
+  sector        String         // "A" | "B"
+
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  departamentos Departamento[]
+}
+
+// ─────────────────────────────────────────────
+// Departamento
+// ─────────────────────────────────────────────
+// tipoOcupacion : "DUENO" | "ARRENDATARIO"
+// debeGastoComun: indica si el depto tiene deuda
+// jefeHogar     : nombre del jefe de hogar
+//                 (puede ser distinto al dueño)
+// cantHabitantes: cantidad de personas que viven
+// ─────────────────────────────────────────────
+model Departamento {
+  id              Int        @id @default(autoincrement())
+  numero          String     // Ej: "101", "4B"
+  tipoOcupacion   String     @default("DUENO") // "DUENO" | "ARRENDATARIO"
+  jefeHogar       String?    // Nombre del jefe de hogar
+  cantHabitantes  Int        @default(0)
+  debeGastoComun  Boolean    @default(false)
+
+  // FK → Torre
+  torreId         Int
+  torre           Torre      @relation(fields: [torreId], references: [id])
+
+  // FK → Dueno (propietario legal, obligatorio)
+   duenoId        Int?
+  dueno           Dueno?      @relation(fields: [duenoId], references: [id])
+
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  // Relaciones
+  residentes      Residente[]
+  gastosComunes   GastoComun[]
+
+}
+
+// ─────────────────────────────────────────────
+// Residente
+// ─────────────────────────────────────────────
+// Persona que habita el departamento.
+// tipo: "DUENO" | "ARRENDATARIO"
+// ─────────────────────────────────────────────
+model Residente {
+  id             Int          @id @default(autoincrement())
+  nombre         String
+  rut            String       @unique
+  telefono       String?
+  esJefeHogar    Boolean      @default(false)
+
+  // FK → Departamento
+  departamentoId Int
+  departamento   Departamento @relation(fields: [departamentoId], references: [id])
+
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  vehiculos      Vehiculo[]
+}
+
+// ─────────────────────────────────────────────
+// Vehiculo
+// ─────────────────────────────────────────────
+// tipo: "AUTO" | "MOTO" | "CAMIONETA" | "FURGON" | "OTRO"
+// ─────────────────────────────────────────────
+model Vehiculo {
+  id           Int        @id @default(autoincrement())
+  patente      String     @unique
+  tipo         String     @default("AUTO") // "AUTO" | "MOTO" | "CAMIONETA" | "FURGON" | "OTRO"
+
+  // FK → Residente
+  residenteId  Int
+  residente    Residente  @relation(fields: [residenteId], references: [id])
+
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+// ─────────────────────────────────────────────
+// GastoComun
+// ─────────────────────────────────────────────
+// estadoPago: "PENDIENTE" | "PAGADO" | "ATRASADO"
+// ─────────────────────────────────────────────
+model GastoComun {
+  id             Int          @id @default(autoincrement())
+  monto          Float
+  periodo        DateTime     // Primer día del mes: 2024-03-01
+  estadoPago     String       @default("PENDIENTE") // "PENDIENTE" | "PAGADO" | "ATRASADO"
+  fechaPago      DateTime?
+
+  // FK → Departamento
+  departamentoId Int
+  departamento   Departamento @relation(fields: [departamentoId], references: [id])
+
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  // Un período único por departamento
+  @@unique([departamentoId, periodo])
+}
+
+// ─────────────────────────────────────────────
+// Configuracion
+// ─────────────────────────────────────────────
+// Configuración global del condominio.
+// Solo existe un registro (id = 1).
+// ─────────────────────────────────────────────
+model Configuracion {
+  id            Int      @id @default(autoincrement())
+  montoMensual  Float    @default(0)
+  updatedAt     DateTime @updatedAt
+}
