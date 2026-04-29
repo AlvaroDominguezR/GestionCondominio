@@ -207,3 +207,11 @@ export async function eliminarVehiculo(vehiculoId: number, departamentoId: numbe
   await prisma.vehiculo.delete({ where: { id: vehiculoId } });
   revalidatePath(`/departamentos/${departamentoId}`);
 }
+
+export async function actualizarDeudaAnterior(id: number, monto: number) {
+  await prisma.departamento.update({
+    where: { id },
+    data: { deudaAnterior: monto },
+  });
+  revalidatePath(`/departamentos/${id}`);
+}

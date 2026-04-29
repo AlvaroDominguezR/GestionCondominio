@@ -63,6 +63,7 @@ model Departamento {
   jefeHogar       String?    // Nombre del jefe de hogar
   cantHabitantes  Int        @default(0)
   debeGastoComun  Boolean    @default(false)
+  deudaAnterior   Float      @default(0) // Deuda acumulada antes del sistema
 
   // FK → Torre
   torreId         Int
@@ -155,4 +156,40 @@ model Configuracion {
   id            Int      @id @default(autoincrement())
   montoMensual  Float    @default(0)
   updatedAt     DateTime @updatedAt
+}
+
+// ─────────────────────────────────────────────
+// Ingreso
+// ─────────────────────────────────────────────
+model Ingreso {
+  id          Int      @id @default(autoincrement())
+  descripcion String
+  monto       Float
+  fecha       DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ─────────────────────────────────────────────
+// Egreso
+// ─────────────────────────────────────────────
+model Egreso {
+  id          Int      @id @default(autoincrement())
+  descripcion String
+  monto       Float
+  fecha       DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ─────────────────────────────────────────────
+// Aviso
+// ─────────────────────────────────────────────
+model Aviso {
+  id          Int      @id @default(autoincrement())
+  titulo      String
+  descripcion String?
+  fecha       DateTime // Fecha del evento
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

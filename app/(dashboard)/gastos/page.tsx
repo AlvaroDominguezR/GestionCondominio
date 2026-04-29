@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Receipt, CheckCircle2, Clock, AlertCircle, Settings, CreditCard, Building2 } from "lucide-react";
+import { Receipt, CheckCircle2, Clock, AlertCircle, Settings, CreditCard } from "lucide-react";
+import Link from "next/link";
 
 type GastoDepto = {
   id: number;
@@ -99,13 +100,11 @@ function ModalRegistrarPago({ onClose, onPagado }: { onClose: () => void; onPaga
     const seleccionados = meses
       .filter((m) => mesesSeleccionados.includes(m.key))
       .map((m) => ({ key: m.key, gastoId: m.gastoId }));
-
     await fetch("/api/gastos/registrar-pago", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ departamentoId: deptoSeleccionado?.id, mesesSeleccionados: seleccionados }),
     });
-
     setGuardando(false);
     onPagado();
     onClose();
@@ -118,8 +117,6 @@ function ModalRegistrarPago({ onClose, onPagado }: { onClose: () => void; onPaga
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8 space-y-6">
-
-        {/* Paso 1: Seleccionar torre */}
         {paso === "torre" && (
           <>
             <div>
@@ -127,11 +124,12 @@ function ModalRegistrarPago({ onClose, onPagado }: { onClose: () => void; onPaga
               <p className="text-sm text-gray-500 mt-1">Selecciona la torre del departamento</p>
             </div>
             <div className="space-y-2 max-h-72 overflow-y-auto">
-              {torres.map((t) => (
+              {torres.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-4">No hay torres con departamentos ocupados.</p>
+              ) : torres.map((t) => (
                 <button key={t.id} onClick={() => { setTorre(t); setPaso("depto"); }}
                   className="w-full flex items-center gap-3 border border-gray-200 rounded-xl px-4 py-3 hover:border-blue-400 hover:bg-blue-50 transition-colors text-left">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold
-                    ${t.nombre.endsWith("A") ? "bg-blue-600" : "bg-green-600"}`}>
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold ${t.nombre.endsWith("A") ? "bg-blue-600" : "bg-green-600"}`}>
                     {t.nombre.endsWith("A") ? "A" : "B"}
                   </div>
                   <span className="text-sm font-medium text-gray-900">{t.nombre}</span>
@@ -143,7 +141,6 @@ function ModalRegistrarPago({ onClose, onPagado }: { onClose: () => void; onPaga
           </>
         )}
 
-        {/* Paso 2: Seleccionar departamento */}
         {paso === "depto" && torreSeleccionada && (
           <>
             <div>
@@ -164,7 +161,6 @@ function ModalRegistrarPago({ onClose, onPagado }: { onClose: () => void; onPaga
           </>
         )}
 
-        {/* Paso 3: Seleccionar meses */}
         {paso === "meses" && deptoSeleccionado && (
           <>
             <div>
@@ -175,44 +171,35 @@ function ModalRegistrarPago({ onClose, onPagado }: { onClose: () => void; onPaga
             <div className="space-y-2 max-h-64 overflow-y-auto">
               {meses.length === 0 ? (
                 <p className="text-sm text-gray-400 text-center py-4">No hay meses pendientes.</p>
-              ) : (
-                meses.map((m) => (
-                  <label key={m.key}
-                    className={`flex items-center justify-between border rounded-lg px-4 py-3 cursor-pointer transition-colors
-                      ${mesesSeleccionados.includes(m.key)
-                        ? "border-blue-500 bg-blue-50"
-                        : "border-gray-200 hover:border-gray-300"
-                      }`}>
-                    <div className="flex items-center gap-3">
-                      <input type="checkbox" checked={mesesSeleccionados.includes(m.key)}
-                        onChange={() => toggleMes(m.key)} className="w-4 h-4 accent-gray-900" />
-                      <span className="text-sm font-medium text-gray-700 capitalize">{m.label}</span>
-                      {m.estadoPago === "ATRASADO" && (
-                        <span className="text-xs bg-red-50 text-red-600 px-2 py-0.5 rounded-full">Atrasado</span>
-                      )}
-                    </div>
-                    <span className="text-sm font-semibold text-gray-900">${m.monto.toLocaleString("es-CL")}</span>
-                  </label>
-                ))
-              )}
+              ) : meses.map((m) => (
+                <label key={m.key}
+                  className={`flex items-center justify-between border rounded-lg px-4 py-3 cursor-pointer transition-colors
+                    ${mesesSeleccionados.includes(m.key) ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-gray-300"}`}>
+                  <div className="flex items-center gap-3">
+                    <input type="checkbox" checked={mesesSeleccionados.includes(m.key)}
+                      onChange={() => toggleMes(m.key)} className="w-4 h-4 accent-gray-900" />
+                    <span className="text-sm font-medium text-gray-700 capitalize">{m.label}</span>
+                    {m.estadoPago === "ATRASADO" && (
+                      <span className="text-xs bg-red-50 text-red-600 px-2 py-0.5 rounded-full">Atrasado</span>
+                    )}
+                  </div>
+                  <span className="text-sm font-semibold text-gray-900">${m.monto.toLocaleString("es-CL")}</span>
+                </label>
+              ))}
             </div>
-
             {mesesSeleccionados.length > 0 && (
               <div className="bg-gray-50 rounded-lg px-4 py-3 flex items-center justify-between">
                 <span className="text-sm text-gray-600">{mesesSeleccionados.length} mes{mesesSeleccionados.length !== 1 ? "es" : ""} seleccionado{mesesSeleccionados.length !== 1 ? "s" : ""}</span>
                 <span className="text-sm font-bold text-gray-900">${totalSeleccionado.toLocaleString("es-CL")}</span>
               </div>
             )}
-
             <div className="flex gap-3">
               <button onClick={handleConfirmar} disabled={guardando || mesesSeleccionados.length === 0}
                 className="flex-1 bg-gray-900 text-white text-sm font-medium py-3 rounded-lg hover:bg-gray-700 disabled:opacity-40">
                 {guardando ? "Registrando..." : "Confirmar pago"}
               </button>
               <button onClick={onClose}
-                className="flex-1 border border-gray-200 text-sm text-gray-500 py-3 rounded-lg hover:bg-gray-50">
-                Cancelar
-              </button>
+                className="flex-1 border border-gray-200 text-sm text-gray-500 py-3 rounded-lg hover:bg-gray-50">Cancelar</button>
             </div>
           </>
         )}
@@ -229,6 +216,7 @@ export default function GastosPage() {
   const [config, setConfig]           = useState({ montoMensual: 0 });
   const [mes, setMes]                 = useState(getMesActual());
   const [cargando, setCargando]       = useState(true);
+  const [pestana, setPestana]         = useState<"estado" | "historial">("estado");
   const [modalConfig, setModalConfig] = useState(false);
   const [modalPago, setModalPago]     = useState(false);
   const [generando, setGenerando]     = useState(false);
@@ -307,7 +295,7 @@ export default function GastosPage() {
         <label className="text-sm font-medium text-gray-700">Período:</label>
         <input type="month" value={mes} onChange={(e) => setMes(e.target.value)}
           className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900" />
-        <span className="text-sm text-gray-500">{formatMes(mes)}</span>
+        <span className="text-sm text-gray-500">{mes ? formatMes(mes) : ""}</span>
       </div>
 
       {/* Tarjetas */}
@@ -317,107 +305,132 @@ export default function GastosPage() {
           <p className="text-xl font-bold text-gray-900 mt-1">${(stats.montoTotal ?? 0).toLocaleString("es-CL")}</p>
           <p className="text-xs text-gray-400 mt-1">{stats.totalDeptos} departamentos</p>
         </div>
-        <div className="bg-white border border-gray-200 rounded-xl p-5">
+        <Link href={`/gastos/estado?estado=pagado&mes=${mes}`}
+          className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-md transition-all cursor-pointer block">
           <div className="flex items-center gap-2 mb-1">
             <CheckCircle2 className="w-4 h-4 text-green-500" />
             <p className="text-xs text-gray-400">Pagado</p>
           </div>
           <p className="text-xl font-bold text-green-600">${(stats.montoPagado ?? 0).toLocaleString("es-CL")}</p>
-          <p className="text-xs text-gray-400 mt-1">{stats.pagados} deptos.</p>
-        </div>
-        <div className="bg-white border border-gray-200 rounded-xl p-5">
+          <p className="text-xs text-gray-400 mt-1">{stats.pagados} deptos. →</p>
+        </Link>
+        <Link href={`/gastos/estado?estado=pendiente&mes=${mes}`}
+          className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-md transition-all cursor-pointer block">
           <div className="flex items-center gap-2 mb-1">
             <Clock className="w-4 h-4 text-yellow-500" />
             <p className="text-xs text-gray-400">Pendiente</p>
           </div>
           <p className="text-xl font-bold text-yellow-600">{stats.pendientes} deptos.</p>
-        </div>
-        <div className="bg-white border border-gray-200 rounded-xl p-5">
+          <p className="text-xs text-gray-400 mt-1">Ver lista →</p>
+        </Link>
+        <Link href={`/gastos/estado?estado=atrasado&mes=${mes}`}
+          className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-md transition-all cursor-pointer block">
           <div className="flex items-center gap-2 mb-1">
             <AlertCircle className="w-4 h-4 text-red-500" />
             <p className="text-xs text-gray-400">Atrasado</p>
           </div>
           <p className="text-xl font-bold text-red-600">{stats.atrasados} deptos.</p>
-        </div>
+          <p className="text-xs text-gray-400 mt-1">Ver lista →</p>
+        </Link>
       </div>
 
-      {/* Estado de pagos del mes */}
+      {/* Pestañas */}
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100">
-          <h2 className="font-semibold text-gray-900">Estado de pagos — {formatMes(mes)}</h2>
+        {/* Tab headers */}
+        <div className="flex border-b border-gray-100">
+          <button
+            onClick={() => setPestana("estado")}
+            className={`px-6 py-4 text-sm font-medium transition-colors border-b-2 -mb-px
+              ${pestana === "estado"
+                ? "border-gray-900 text-gray-900"
+                : "border-transparent text-gray-400 hover:text-gray-700"}`}>
+            Estado del mes
+          </button>
+          <button
+            onClick={() => setPestana("historial")}
+            className={`px-6 py-4 text-sm font-medium transition-colors border-b-2 -mb-px
+              ${pestana === "historial"
+                ? "border-gray-900 text-gray-900"
+                : "border-transparent text-gray-400 hover:text-gray-700"}`}>
+            Últimos pagos
+          </button>
         </div>
-        {!cargando && gastos.length === 0 ? (
-          <div className="px-6 py-16 text-center space-y-2">
-            <p className="text-sm text-gray-400">No hay cobros generados para este período.</p>
-            <p className="text-xs text-gray-400">Presiona "Generar cobros del mes" para crear los registros.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-100 bg-gray-50">
-                  <th className="text-left px-6 py-3 font-medium text-gray-500">Departamento</th>
-                  <th className="text-left px-6 py-3 font-medium text-gray-500">Torre</th>
-                  <th className="text-left px-6 py-3 font-medium text-gray-500">Monto</th>
-                  <th className="text-left px-6 py-3 font-medium text-gray-500">Estado</th>
-                  <th className="text-left px-6 py-3 font-medium text-gray-500">Fecha pago</th>
-                </tr>
-              </thead>
-              <tbody>
-                {gastos.map((g, i) => (
-                  <tr key={g.id} className={`border-b border-gray-100 last:border-0 ${i % 2 === 0 ? "" : "bg-gray-50/50"}`}>
-                    <td className="px-6 py-4 font-medium text-gray-900">{g.departamento.numero || "Sin número"}</td>
-                    <td className="px-6 py-4 text-gray-500">{g.departamento.torre.nombre}</td>
-                    <td className="px-6 py-4 text-gray-900">${g.monto.toLocaleString("es-CL")}</td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-block text-xs font-medium px-2.5 py-1 rounded-full ${estadoColor[g.estadoPago]}`}>
-                        {g.estadoPago.charAt(0) + g.estadoPago.slice(1).toLowerCase()}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-gray-500">
-                      {g.fechaPago ? new Date(g.fechaPago).toLocaleDateString("es-CL") : "—"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+
+        {/* Tab: Estado del mes */}
+        {pestana === "estado" && (
+          <>
+            {!cargando && gastos.length === 0 ? (
+              <div className="px-6 py-16 text-center space-y-2">
+                <p className="text-sm text-gray-400">No hay cobros generados para este período.</p>
+                <p className="text-xs text-gray-400">Presiona "Generar cobros del mes" para crear los registros.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-100 bg-gray-50">
+                      <th className="text-left px-6 py-3 font-medium text-gray-500">Departamento</th>
+                      <th className="text-left px-6 py-3 font-medium text-gray-500">Torre</th>
+                      <th className="text-left px-6 py-3 font-medium text-gray-500">Monto</th>
+                      <th className="text-left px-6 py-3 font-medium text-gray-500">Estado</th>
+                      <th className="text-left px-6 py-3 font-medium text-gray-500">Fecha pago</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {gastos.map((g, i) => (
+                      <tr key={g.id} className={`border-b border-gray-100 last:border-0 ${i % 2 === 0 ? "" : "bg-gray-50/50"}`}>
+                        <td className="px-6 py-4 font-medium text-gray-900">{g.departamento.numero || "Sin número"}</td>
+                        <td className="px-6 py-4 text-gray-500">{g.departamento.torre.nombre}</td>
+                        <td className="px-6 py-4 text-gray-900">${g.monto.toLocaleString("es-CL")}</td>
+                        <td className="px-6 py-4">
+                          <span className={`inline-block text-xs font-medium px-2.5 py-1 rounded-full ${estadoColor[g.estadoPago]}`}>
+                            {g.estadoPago.charAt(0) + g.estadoPago.slice(1).toLowerCase()}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-gray-500">
+                          {g.fechaPago ? new Date(g.fechaPago).toLocaleDateString("es-CL") : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
         )}
-      </div>
 
-      {/* Últimos pagos realizados */}
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100">
-          <h2 className="font-semibold text-gray-900">Últimos pagos realizados</h2>
-          <p className="text-xs text-gray-400 mt-0.5">Los 15 más recientes</p>
-        </div>
-        {ultimosPagos.length === 0 ? (
-          <div className="px-6 py-12 text-center text-sm text-gray-400">No hay pagos registrados aún.</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-100 bg-gray-50">
-                  <th className="text-left px-6 py-3 font-medium text-gray-500">Departamento</th>
-                  <th className="text-left px-6 py-3 font-medium text-gray-500">Torre</th>
-                  <th className="text-left px-6 py-3 font-medium text-gray-500">Período</th>
-                  <th className="text-left px-6 py-3 font-medium text-gray-500">Monto</th>
-                  <th className="text-left px-6 py-3 font-medium text-gray-500">Fecha pago</th>
-                </tr>
-              </thead>
-              <tbody>
-                {ultimosPagos.map((p, i) => (
-                  <tr key={p.id} className={`border-b border-gray-100 last:border-0 ${i % 2 === 0 ? "" : "bg-gray-50/50"}`}>
-                    <td className="px-6 py-4 font-medium text-gray-900">{p.departamento.numero || "Sin número"}</td>
-                    <td className="px-6 py-4 text-gray-500">{p.departamento.torre.nombre}</td>
-                    <td className="px-6 py-4 text-gray-500 capitalize">{formatMes(p.periodo.slice(0, 7))}</td>
-                    <td className="px-6 py-4 text-gray-900">${p.monto.toLocaleString("es-CL")}</td>
-                    <td className="px-6 py-4 text-gray-500">{new Date(p.fechaPago).toLocaleDateString("es-CL")}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        {/* Tab: Últimos pagos */}
+        {pestana === "historial" && (
+          <>
+            {ultimosPagos.length === 0 ? (
+              <div className="px-6 py-12 text-center text-sm text-gray-400">No hay pagos registrados aún.</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-100 bg-gray-50">
+                      <th className="text-left px-6 py-3 font-medium text-gray-500">Departamento</th>
+                      <th className="text-left px-6 py-3 font-medium text-gray-500">Torre</th>
+                      <th className="text-left px-6 py-3 font-medium text-gray-500">Período</th>
+                      <th className="text-left px-6 py-3 font-medium text-gray-500">Monto</th>
+                      <th className="text-left px-6 py-3 font-medium text-gray-500">Fecha pago</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ultimosPagos.map((p, i) => (
+                      <tr key={p.id} className={`border-b border-gray-100 last:border-0 ${i % 2 === 0 ? "" : "bg-gray-50/50"}`}>
+                        <td className="px-6 py-4 font-medium text-gray-900">{p.departamento.numero || "Sin número"}</td>
+                        <td className="px-6 py-4 text-gray-500">{p.departamento.torre.nombre}</td>
+                        <td className="px-6 py-4 text-gray-500 capitalize">{formatMes(p.periodo.slice(0, 7))}</td>
+                        <td className="px-6 py-4 text-gray-900">${p.monto.toLocaleString("es-CL")}</td>
+                        <td className="px-6 py-4 text-gray-500">{new Date(p.fechaPago).toLocaleDateString("es-CL")}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
         )}
       </div>
 

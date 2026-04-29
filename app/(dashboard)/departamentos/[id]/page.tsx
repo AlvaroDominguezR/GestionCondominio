@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useState, useEffect, use } from "react";
-import { Users, Plus, Trash2, AlertCircle, Pencil, UserCheck, Car } from "lucide-react";
-import { crearResidente, eliminarResidente, editarResidente, definirDuenoDesdeResidente, definirDuenoExterno, agregarVehiculo, eliminarVehiculo } from "./actions";
+import { Users, Plus, Trash2, AlertCircle, Pencil, UserCheck, Car, Check, X} from "lucide-react";
+import { crearResidente, eliminarResidente, editarResidente, definirDuenoDesdeResidente, definirDuenoExterno, agregarVehiculo, eliminarVehiculo, actualizarDeudaAnterior } from "./actions";
 
 type Vehiculo = {
   id: number;
@@ -25,6 +25,7 @@ type Depto = {
   numero: string;
   tipoOcupacion: string;
   cantHabitantes: number;
+  deudaAnterior: number;
   debeGastoComun: boolean;
   torre: { id: number; nombre: string; sector: string };
   dueno: { id: number; nombre: string; rut: string; telefono: string | null } | null;
@@ -388,6 +389,8 @@ export default function DepartamentoPage({ params }: { params: Promise<{ id: str
   const [error, setError]                         = useState<string | null>(null);
   const [guardando, setGuardando]                 = useState(false);
   const [refresh, setRefresh]                     = useState(0);
+  const [editandoDeuda, setEditandoDeuda]         = useState(false);
+  const [deudaInput, setDeudaInput]               = useState("");
 
   useEffect(() => {
     fetch(`/api/departamentos/${id}`)
@@ -448,7 +451,7 @@ export default function DepartamentoPage({ params }: { params: Promise<{ id: str
       </div>
 
       {/* Tarjetas */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
         <div className="bg-white border border-gray-200 rounded-xl p-5">
           <p className="text-xs text-gray-400 mb-1">Tipo de ocupación</p>
           <span className={`inline-block text-sm font-semibold px-3 py-1 rounded-full ${depto.tipoOcupacion === "DUENO" ? "bg-blue-50 text-blue-700" : "bg-orange-50 text-orange-700"}`}>
@@ -467,6 +470,40 @@ export default function DepartamentoPage({ params }: { params: Promise<{ id: str
         <div className="bg-white border border-gray-200 rounded-xl p-5">
           <p className="text-xs text-gray-400 mb-1">Vehículos registrados</p>
           <p className="text-sm font-semibold text-gray-900">{totalVehiculos}</p>
+        </div>
+        <div className="bg-white border border-gray-200 rounded-xl p-5">
+          <p className="text-xs text-gray-400 mb-1">Deuda anterior al sistema</p>
+          {editandoDeuda ? (
+            <div className="flex items-center gap-2 mt-1">
+              <input
+                type="number"
+                value={deudaInput}
+                onChange={(e) => setDeudaInput(e.target.value)}
+                className="w-full border border-blue-400 rounded-md px-2 py-1 text-sm focus:outline-none"
+                placeholder="0"
+              />
+              <button onClick={async () => {
+                await actualizarDeudaAnterior(depto.id, parseFloat(deudaInput) || 0);
+                setEditandoDeuda(false);
+                setRefresh((n) => n + 1);
+              }} className="text-green-600 hover:text-green-800">
+                <Check className="w-4 h-4" />
+              </button>
+              <button onClick={() => setEditandoDeuda(false)} className="text-red-400 hover:text-red-600">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 mt-1">
+              <p className={`text-sm font-semibold ${depto.deudaAnterior > 0 ? "text-red-600" : "text-gray-900"}`}>
+                {depto.deudaAnterior > 0 ? `$${depto.deudaAnterior.toLocaleString("es-CL")}` : "Sin deuda"}
+              </p>
+              <button onClick={() => { setDeudaInput(String(depto.deudaAnterior)); setEditandoDeuda(true); }}
+                className="text-gray-300 hover:text-gray-600">
+                <Pencil className="w-3 h-3" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
