@@ -16,6 +16,9 @@ export async function GET(
         orderBy: { id: "asc" },
         include: { vehiculos: true },
       },
+      gastosComunes: {
+        orderBy: { periodo: "desc" },
+      },
     },
   });
 

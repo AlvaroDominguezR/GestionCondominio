@@ -2,14 +2,10 @@
 
 import Link from "next/link";
 import { useState, useEffect, use } from "react";
-import { Users, Plus, Trash2, AlertCircle, Pencil, UserCheck, Car, Check, X} from "lucide-react";
+import { Users, Plus, Trash2, AlertCircle, Pencil, UserCheck, Car, Check, X, Receipt } from "lucide-react";
 import { crearResidente, eliminarResidente, editarResidente, definirDuenoDesdeResidente, definirDuenoExterno, agregarVehiculo, eliminarVehiculo, actualizarDeudaAnterior } from "./actions";
 
-type Vehiculo = {
-  id: number;
-  patente: string;
-  tipo: string;
-};
+type Vehiculo = { id: number; patente: string; tipo: string };
 
 type Residente = {
   id: number;
@@ -20,19 +16,33 @@ type Residente = {
   vehiculos: Vehiculo[];
 };
 
+type GastoComun = {
+  id: number;
+  monto: number;
+  periodo: string;
+  estadoPago: string;
+  fechaPago: string | null;
+};
+
 type Depto = {
   id: number;
   numero: string;
   tipoOcupacion: string;
   cantHabitantes: number;
-  deudaAnterior: number;
   debeGastoComun: boolean;
+  deudaAnterior: number;
   torre: { id: number; nombre: string; sector: string };
   dueno: { id: number; nombre: string; rut: string; telefono: string | null } | null;
   residentes: Residente[];
+  gastosComunes: GastoComun[];
 };
 
 const TIPOS_VEHICULO = ["AUTO", "MOTO", "CAMIONETA", "FURGON", "OTRO"];
+
+function formatMes(periodo: string) {
+  const d = new Date(periodo);
+  return d.toLocaleDateString("es-CL", { month: "long", year: "numeric" });
+}
 
 // ─── Modal Vehículo ─────────────────────────────────────────
 function ModalVehiculo({ depto, onClose }: { depto: Depto; onClose: () => void }) {
@@ -55,7 +65,6 @@ function ModalVehiculo({ depto, onClose }: { depto: Depto; onClose: () => void }
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8 space-y-6">
-
         {paso === "residente" ? (
           <>
             <div>
@@ -64,11 +73,8 @@ function ModalVehiculo({ depto, onClose }: { depto: Depto; onClose: () => void }
             </div>
             <div className="space-y-2">
               {depto.residentes.map((r) => (
-                <button
-                  key={r.id}
-                  onClick={() => { setResidenteSeleccionado(r); setPaso("formulario"); }}
-                  className="w-full flex items-center gap-3 border border-gray-200 rounded-xl px-4 py-3 hover:border-blue-400 hover:bg-blue-50 transition-colors text-left"
-                >
+                <button key={r.id} onClick={() => { setResidenteSeleccionado(r); setPaso("formulario"); }}
+                  className="w-full flex items-center gap-3 border border-gray-200 rounded-xl px-4 py-3 hover:border-blue-400 hover:bg-blue-50 transition-colors text-left">
                   <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-semibold text-gray-600 shrink-0">
                     {r.nombre.charAt(0)}
                   </div>
@@ -89,13 +95,11 @@ function ModalVehiculo({ depto, onClose }: { depto: Depto; onClose: () => void }
               <h2 className="mt-3 text-lg font-bold text-gray-900">Datos del vehículo</h2>
               <p className="text-sm text-gray-500 mt-1">Propietario: <span className="font-medium text-gray-700">{residenteSeleccionado?.nombre}</span></p>
             </div>
-
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0" />{error}
               </div>
             )}
-
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-gray-700">Patente</label>
@@ -161,32 +165,28 @@ function ModalDefinirDueno({ depto, onClose }: { depto: Depto; onClose: () => vo
             {esDueno ? "Selecciona cuál de los residentes es el propietario legal." : "Registra los datos del propietario legal del departamento."}
           </p>
         </div>
-
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg flex items-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0" />{error}
           </div>
         )}
-
         {esDueno ? (
           <div className="space-y-2">
             {depto.residentes.length === 0 ? (
               <p className="text-sm text-gray-400 text-center py-4">No hay residentes registrados aún.</p>
-            ) : (
-              depto.residentes.map((r) => (
-                <button key={r.id} onClick={() => handleSeleccionarResidente(r.id)} disabled={guardando}
-                  className="w-full flex items-center gap-3 border border-gray-200 rounded-xl px-4 py-3 hover:border-blue-400 hover:bg-blue-50 transition-colors text-left disabled:opacity-50">
-                  <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-semibold text-gray-600 shrink-0">
-                    {r.nombre.charAt(0)}
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">{r.nombre}</p>
-                    <p className="text-xs text-gray-400">{r.rut}</p>
-                  </div>
-                  {r.esJefeHogar && <span className="ml-auto text-xs bg-gray-900 text-white px-2 py-0.5 rounded-full">Jefe hogar</span>}
-                </button>
-              ))
-            )}
+            ) : depto.residentes.map((r) => (
+              <button key={r.id} onClick={() => handleSeleccionarResidente(r.id)} disabled={guardando}
+                className="w-full flex items-center gap-3 border border-gray-200 rounded-xl px-4 py-3 hover:border-blue-400 hover:bg-blue-50 transition-colors text-left disabled:opacity-50">
+                <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-semibold text-gray-600 shrink-0">
+                  {r.nombre.charAt(0)}
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">{r.nombre}</p>
+                  <p className="text-xs text-gray-400">{r.rut}</p>
+                </div>
+                {r.esJefeHogar && <span className="ml-auto text-xs bg-gray-900 text-white px-2 py-0.5 rounded-full">Jefe hogar</span>}
+              </button>
+            ))}
             <button onClick={onClose} className="w-full text-sm text-gray-400 hover:text-gray-600 transition-colors pt-2">Cancelar</button>
           </div>
         ) : (
@@ -249,13 +249,11 @@ function FormResidente({ index, total, jefeAsignado, onSubmit, onCancel, guardan
             </div>
           )}
         </div>
-
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg flex items-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0" />{error}
           </div>
         )}
-
         <form onSubmit={(e) => { e.preventDefault(); onSubmit(new FormData(e.currentTarget)); }} className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
@@ -386,11 +384,11 @@ export default function DepartamentoPage({ params }: { params: Promise<{ id: str
   const [modalDueno, setModalDueno]               = useState(false);
   const [modalVehiculo, setModalVehiculo]         = useState(false);
   const [residenteEditando, setResidenteEditando] = useState<Residente | null>(null);
+  const [editandoDeuda, setEditandoDeuda]         = useState(false);
+  const [deudaInput, setDeudaInput]               = useState("");
   const [error, setError]                         = useState<string | null>(null);
   const [guardando, setGuardando]                 = useState(false);
   const [refresh, setRefresh]                     = useState(0);
-  const [editandoDeuda, setEditandoDeuda]         = useState(false);
-  const [deudaInput, setDeudaInput]               = useState("");
 
   useEffect(() => {
     fetch(`/api/departamentos/${id}`)
@@ -417,6 +415,8 @@ export default function DepartamentoPage({ params }: { params: Promise<{ id: str
 
   return (
     <div className="space-y-8">
+
+      {/* Encabezado */}
       <div>
         <Link href={`/torres/${depto.torre.id}`} className="text-sm text-gray-400 hover:text-gray-600 transition-colors">
           ← Volver a {depto.torre.nombre}
@@ -435,9 +435,7 @@ export default function DepartamentoPage({ params }: { params: Promise<{ id: str
             <button
               onClick={() => { if (depto.residentes.length === 0) return; setModalVehiculo(true); }}
               disabled={depto.residentes.length === 0}
-              title={depto.residentes.length === 0 ? "Registra residentes primero" : ""}
-              className="flex items-center gap-2 border border-gray-200 text-gray-700 text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            >
+              className="flex items-center gap-2 border border-gray-200 text-gray-700 text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
               <Car className="w-4 h-4" />Agregar vehículo
             </button>
             {depto.residentes.length < 8 && (
@@ -454,7 +452,8 @@ export default function DepartamentoPage({ params }: { params: Promise<{ id: str
       <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
         <div className="bg-white border border-gray-200 rounded-xl p-5">
           <p className="text-xs text-gray-400 mb-1">Tipo de ocupación</p>
-          <span className={`inline-block text-sm font-semibold px-3 py-1 rounded-full ${depto.tipoOcupacion === "DUENO" ? "bg-blue-50 text-blue-700" : "bg-orange-50 text-orange-700"}`}>
+          <span className={`inline-block text-sm font-semibold px-3 py-1 rounded-full
+            ${depto.tipoOcupacion === "DUENO" ? "bg-blue-50 text-blue-700" : "bg-orange-50 text-orange-700"}`}>
             {depto.tipoOcupacion === "DUENO" ? "Dueño" : "Arrendatario"}
           </span>
         </div>
@@ -475,23 +474,14 @@ export default function DepartamentoPage({ params }: { params: Promise<{ id: str
           <p className="text-xs text-gray-400 mb-1">Deuda anterior al sistema</p>
           {editandoDeuda ? (
             <div className="flex items-center gap-2 mt-1">
-              <input
-                type="number"
-                value={deudaInput}
-                onChange={(e) => setDeudaInput(e.target.value)}
-                className="w-full border border-blue-400 rounded-md px-2 py-1 text-sm focus:outline-none"
-                placeholder="0"
-              />
+              <input type="number" value={deudaInput} onChange={(e) => setDeudaInput(e.target.value)}
+                className="w-full border border-blue-400 rounded-md px-2 py-1 text-sm focus:outline-none" placeholder="0" />
               <button onClick={async () => {
                 await actualizarDeudaAnterior(depto.id, parseFloat(deudaInput) || 0);
                 setEditandoDeuda(false);
                 setRefresh((n) => n + 1);
-              }} className="text-green-600 hover:text-green-800">
-                <Check className="w-4 h-4" />
-              </button>
-              <button onClick={() => setEditandoDeuda(false)} className="text-red-400 hover:text-red-600">
-                <X className="w-4 h-4" />
-              </button>
+              }} className="text-green-600 hover:text-green-800"><Check className="w-4 h-4" /></button>
+              <button onClick={() => setEditandoDeuda(false)} className="text-red-400 hover:text-red-600"><X className="w-4 h-4" /></button>
             </div>
           ) : (
             <div className="flex items-center gap-2 mt-1">
@@ -499,9 +489,7 @@ export default function DepartamentoPage({ params }: { params: Promise<{ id: str
                 {depto.deudaAnterior > 0 ? `$${depto.deudaAnterior.toLocaleString("es-CL")}` : "Sin deuda"}
               </p>
               <button onClick={() => { setDeudaInput(String(depto.deudaAnterior)); setEditandoDeuda(true); }}
-                className="text-gray-300 hover:text-gray-600">
-                <Pencil className="w-3 h-3" />
-              </button>
+                className="text-gray-300 hover:text-gray-600"><Pencil className="w-3 h-3" /></button>
             </div>
           )}
         </div>
@@ -546,8 +534,6 @@ export default function DepartamentoPage({ params }: { params: Promise<{ id: str
                     </button>
                   </div>
                 </div>
-
-                {/* Vehículos del residente */}
                 {r.vehiculos.length > 0 && (
                   <div className="mt-2 ml-11 space-y-1">
                     {r.vehiculos.map((v) => (
@@ -569,6 +555,54 @@ export default function DepartamentoPage({ params }: { params: Promise<{ id: str
         )}
       </div>
 
+      {/* Historial gastos comunes */}
+      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+          <div>
+            <h2 className="font-semibold text-gray-900">Historial de gastos comunes</h2>
+            <p className="text-xs text-gray-400 mt-0.5">{depto.gastosComunes?.length ?? 0} registros</p>
+          </div>
+          <Receipt className="w-4 h-4 text-gray-400" />
+        </div>
+        {(depto.gastosComunes?.length ?? 0) === 0 ? (
+          <div className="px-6 py-10 text-center text-sm text-gray-400">
+            No hay gastos comunes registrados para este departamento.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 bg-gray-50">
+                  <th className="text-left px-6 py-3 font-medium text-gray-500">Período</th>
+                  <th className="text-left px-6 py-3 font-medium text-gray-500">Monto</th>
+                  <th className="text-left px-6 py-3 font-medium text-gray-500">Estado</th>
+                  <th className="text-left px-6 py-3 font-medium text-gray-500">Fecha pago</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(depto.gastosComunes ?? []).map((g, i) => (
+                  <tr key={g.id} className={`border-b border-gray-100 last:border-0 ${i % 2 === 0 ? "" : "bg-gray-50/50"}`}>
+                    <td className="px-6 py-4 text-gray-900 capitalize">{formatMes(g.periodo)}</td>
+                    <td className="px-6 py-4 text-gray-900">${g.monto.toLocaleString("es-CL")}</td>
+                    <td className="px-6 py-4">
+                      <span className={`inline-block text-xs font-medium px-2.5 py-1 rounded-full
+                        ${g.estadoPago === "PAGADO"    ? "bg-green-50 text-green-700"   :
+                          g.estadoPago === "PENDIENTE" ? "bg-yellow-50 text-yellow-700" :
+                                                         "bg-red-50 text-red-700"}`}>
+                        {g.estadoPago.charAt(0) + g.estadoPago.slice(1).toLowerCase()}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-gray-500">
+                      {g.fechaPago ? new Date(g.fechaPago).toLocaleDateString("es-CL") : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
       {modalAgregar && <ModalAgregar depto={depto} onClose={() => { setModalAgregar(false); setRefresh((n) => n + 1); }} />}
       {modalDueno && <ModalDefinirDueno depto={depto} onClose={() => { setModalDueno(false); setRefresh((n) => n + 1); }} />}
       {modalVehiculo && <ModalVehiculo depto={depto} onClose={() => { setModalVehiculo(false); setRefresh((n) => n + 1); }} />}
@@ -579,6 +613,7 @@ export default function DepartamentoPage({ params }: { params: Promise<{ id: str
           onCancel={() => { setResidenteEditando(null); setError(null); }}
           guardando={guardando} error={error} defaultValues={residenteEditando} />
       )}
+
     </div>
   );
 }

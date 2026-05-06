@@ -9,6 +9,8 @@ import {
   Car,
   Receipt,
   Home,
+  TrendingUp,
+  Settings
 } from "lucide-react";
 
 const links = [
@@ -18,6 +20,8 @@ const links = [
   { href: "/habitantes",    label: "Habitantes",     icon: Users },
   { href: "/vehiculos",     label: "Vehículos",      icon: Car },
   { href: "/gastos",        label: "Gastos Comunes", icon: Receipt },
+  { href: "/finanzas", label: "Finanzas", icon: TrendingUp },
+  { href: "/perfil", label: "Perfil", icon: Settings },
 ];
 
 export default function Sidebar() {

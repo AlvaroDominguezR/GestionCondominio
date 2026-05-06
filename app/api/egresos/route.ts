@@ -7,7 +7,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Descripción y monto son obligatorios" }, { status: 400 });
   }
   const egreso = await prisma.egreso.create({
-    data: { descripcion, monto: parseFloat(monto), fecha: fecha ? new Date(fecha) : new Date() },
+    data: { descripcion, monto: parseFloat(monto), fecha: fecha ? new Date(fecha + "T12:00:00") : new Date() },
   });
   return NextResponse.json({ ok: true, egreso });
 }

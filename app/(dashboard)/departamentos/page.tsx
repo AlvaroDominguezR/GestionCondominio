@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Search, Users, CheckCircle2, Clock, AlertCircle, UserCheck } from "lucide-react";
+import { Search, Users, CheckCircle2, Clock, AlertCircle, UserCheck, Car } from "lucide-react";
 
 type Departamento = {
   id: number;
@@ -11,6 +11,7 @@ type Departamento = {
   torre: { nombre: string; sector: string };
   dueno: { nombre: string } | null;
   _count: { residentes: number };
+  residentes: { esJefeHogar: boolean; nombre: string; vehiculos: { id: number }[] }[];
   gastosComunes: { estadoPago: string }[];
 };
 
@@ -110,16 +111,25 @@ export default function DepartamentosPage() {
                   {/* Dueño */}
                   <div className="flex items-center gap-2 text-xs text-gray-500">
                     <UserCheck className="w-3.5 h-3.5 text-gray-400" />
-                    <span>{d.dueno?.nombre ?? "Sin dueño asignado"}</span>
+                    <span>Dueño: {d.dueno?.nombre ?? "Sin dueño asignado"}</span>
                   </div>
-
+                  {/* Jefe de Hogar*/}
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                      <Users className="w-3.5 h-3.5 text-gray-400" />
+                      <span>Jefe hogar: {d.residentes.find((r) => r.esJefeHogar)?.nombre ?? "Sin asignar"}</span>
+                    </div>
                   {/* Habitantes */}
-                  <div className="flex items-center gap-2 text-xs text-gray-500">
-                    <Users className="w-3.5 h-3.5 text-gray-400" />
-                    <span>{d._count.residentes} habitante{d._count.residentes !== 1 ? "s" : ""}</span>
+                  <div className="flex items-center gap-4 text-xs text-gray-500">
+                    <div className="flex items-center gap-1">
+                      <Users className="w-3.5 h-3.5 text-gray-400" />
+                      <span>{d._count.residentes} habitante{d._count.residentes !== 1 ? "s" : ""}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Car className="w-3.5 h-3.5 text-gray-400" />
+                      <span>{d.residentes.reduce((acc, r) => acc + r.vehiculos.length, 0)} vehículo{d.residentes.reduce((acc, r) => acc + r.vehiculos.length, 0) !== 1 ? "s" : ""}</span>
+                    </div>
                   </div>
                 </div>
-
                 {/* Estado gasto común */}
                 <div className="pt-2 border-t border-gray-100">
                   {estadoGasto ? (
@@ -131,7 +141,6 @@ export default function DepartamentosPage() {
                     <p className="text-xs text-gray-400">Sin cobro generado este mes</p>
                   )}
                 </div>
-
               </Link>
             );
           })}

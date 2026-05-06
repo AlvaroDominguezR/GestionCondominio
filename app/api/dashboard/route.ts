@@ -3,12 +3,17 @@ import { NextResponse } from "next/server";
 
 export async function GET() {
   const hoy = new Date();
-  const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-  const finMes    = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 1);
 
-  // Inicio y fin de semana actual
-  const inicioDia = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
-  const finSemana = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + 7);
+  // Usar año y mes directamente para evitar desfase UTC
+  const year  = hoy.getFullYear();
+  const month = hoy.getMonth(); // 0-indexed
+
+  const inicioMes = new Date(year, month, 1);
+  const finMes    = new Date(year, month + 1, 1);
+
+  // Inicio de hoy y fin de semana (7 días)
+  const inicioDia = new Date(year, month, hoy.getDate());
+  const finSemana = new Date(year, month, hoy.getDate() + 7);
 
   const [
     totalDeptos,
@@ -25,17 +30,20 @@ export async function GET() {
     prisma.departamento.count({ where: { residentes: { some: {} } } }),
     prisma.residente.count(),
     prisma.vehiculo.count(),
+    // Buscar gastos del mes actual por periodo
     prisma.gastoComun.findMany({
-      where: { periodo: { gte: inicioMes, lt: finMes } },
+      where: {
+        periodo: { gte: inicioMes, lt: finMes },
+      },
       select: { monto: true, estadoPago: true },
     }),
     prisma.ingreso.findMany({
       where: { fecha: { gte: inicioMes, lt: finMes } },
-      select: { monto: true, descripcion: true, fecha: true },
+      select: { monto: true },
     }),
     prisma.egreso.findMany({
       where: { fecha: { gte: inicioMes, lt: finMes } },
-      select: { monto: true, descripcion: true, fecha: true },
+      select: { monto: true },
     }),
     prisma.gastoComun.findMany({
       where: { estadoPago: "PAGADO" },
@@ -49,14 +57,14 @@ export async function GET() {
     }),
   ]);
 
-  const gastosPagados   = gastosMes.filter((g) => g.estadoPago === "PAGADO");
+  const gastosPagados    = gastosMes.filter((g) => g.estadoPago === "PAGADO");
   const gastosPendientes = gastosMes.filter((g) => g.estadoPago === "PENDIENTE");
   const gastosAtrasados  = gastosMes.filter((g) => g.estadoPago === "ATRASADO");
 
-  const totalGastosPagados = gastosPagados.reduce((acc, g) => acc + g.monto, 0);
-  const totalIngresos      = ingresosMes.reduce((acc, g) => acc + g.monto, 0);
-  const totalEgresos       = egresosMes.reduce((acc, g) => acc + g.monto, 0);
-  const balance            = totalGastosPagados + totalIngresos - totalEgresos;
+  const totalGastosPagados  = gastosPagados.reduce((acc, g) => acc + g.monto, 0);
+  const totalIngresos       = ingresosMes.reduce((acc, g) => acc + g.monto, 0);
+  const totalEgresos        = egresosMes.reduce((acc, g) => acc + g.monto, 0);
+  const balance             = totalGastosPagados + totalIngresos - totalEgresos;
 
   return NextResponse.json({
     stats: {

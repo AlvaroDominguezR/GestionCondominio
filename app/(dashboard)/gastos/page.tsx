@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Receipt, CheckCircle2, Clock, AlertCircle, Settings, CreditCard } from "lucide-react";
+import { Receipt, CheckCircle2, Clock, AlertCircle, Settings, CreditCard, FileDown } from "lucide-react";
 import Link from "next/link";
 
 type GastoDepto = {
@@ -254,6 +254,11 @@ export default function GastosPage() {
     await cargar();
   }
 
+  async function handleDescargarPDFGastos() {
+    if (!mes) return;
+    window.open(`/api/reportes/gastos?mes=${mes}`, "_blank");
+  }
+
   const estadoColor: Record<string, string> = {
     PAGADO:    "bg-green-50 text-green-700",
     PENDIENTE: "bg-yellow-50 text-yellow-700",
@@ -286,6 +291,10 @@ export default function GastosPage() {
             className="flex items-center gap-2 bg-gray-900 text-white text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed">
             <Receipt className="w-4 h-4" />
             {generando ? "Generando..." : "Generar cobros del mes"}
+          </button>
+          <button onClick={handleDescargarPDFGastos}
+            className="flex items-center gap-1.5 text-sm font-medium px-4 py-2.5 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200 transition-colors">
+            <FileDown className="w-4 h-4" />PDF
           </button>
         </div>
       </div>

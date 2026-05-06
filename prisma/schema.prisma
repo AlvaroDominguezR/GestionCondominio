@@ -193,3 +193,19 @@ model Aviso {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
+
+// ─────────────────────────────────────────────
+// PerfilCondominio
+// ─────────────────────────────────────────────
+// Solo existe un registro (id = 1).
+// ─────────────────────────────────────────────
+model PerfilCondominio {
+  id          Int      @id @default(autoincrement())
+  nombre      String   @default("")
+  direccion   String   @default("")
+  comuna      String   @default("")
+  ciudad      String   @default("")
+  telefono    String   @default("")
+  email       String   @default("")
+  updatedAt   DateTime @updatedAt
+}

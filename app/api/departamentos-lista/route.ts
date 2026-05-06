@@ -23,6 +23,13 @@ export async function GET(req: Request) {
       torre: true,
       dueno: { select: { nombre: true } },
       _count: { select: { residentes: true } },
+      residentes: {
+        select: {
+          esJefeHogar: true,
+          nombre: true,
+          vehiculos: { select: { id: true } },
+        },
+      },
       gastosComunes: {
         where: { periodo: { gte: periodoInicio, lt: periodoFin } },
         select: { estadoPago: true },
