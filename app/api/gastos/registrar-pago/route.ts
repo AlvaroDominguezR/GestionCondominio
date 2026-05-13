@@ -58,34 +58,35 @@ export async function POST(req: Request) {
 
   for (const mes of mesesSeleccionados) {
     const [year, month] = mes.key.split("-").map(Number);
-    const periodo = new Date(year, month - 1, 1);
+    const periodoInicio = new Date(Date.UTC(year, month - 1, 1));
+    const periodoFin = new Date(Date.UTC(year, month, 1));
 
-    if (mes.gastoId) {
-      // Verificar que no esté ya pagado antes de actualizar
-      const gasto = await prisma.gastoComun.findUnique({ where: { id: mes.gastoId } });
-      if (gasto && gasto.estadoPago !== "PAGADO") {
+    // Buscar el gasto del mes por rango UTC (no por fecha exacta)
+    const gasto = await prisma.gastoComun.findFirst({
+      where: {
+        departamentoId,
+        periodo: { gte: periodoInicio, lt: periodoFin },
+      },
+    });
+
+    if (gasto) {
+      if (gasto.estadoPago !== "PAGADO") {
         await prisma.gastoComun.update({
-          where: { id: mes.gastoId },
+          where: { id: gasto.id },
           data: { estadoPago: "PAGADO", fechaPago },
         });
       }
     } else {
-      // Verificar que no exista ya para ese mes
-      const existente = await prisma.gastoComun.findFirst({
-        where: { departamentoId, periodo },
+      // Si no existe, lo crea (caso muy raro)
+      await prisma.gastoComun.create({
+        data: {
+          departamentoId,
+          monto: config.montoMensual,
+          periodo: periodoInicio,
+          estadoPago: "PAGADO",
+          fechaPago,
+        },
       });
-
-      if (!existente) {
-        await prisma.gastoComun.create({
-          data: {
-            departamentoId,
-            monto: config.montoMensual,
-            periodo,
-            estadoPago: "PAGADO",
-            fechaPago,
-          },
-        });
-      }
     }
   }
 

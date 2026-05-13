@@ -25,7 +25,12 @@ export async function GET(req: Request) {
         },
       },
     },
-    orderBy: { patente: "asc" },
+    orderBy: [
+      { residente: { departamento: { torre: { sector: "asc" } } } },
+      { residente: { departamento: { torre: { nombre: "asc" } } } },
+      { residente: { departamento: { numero: "asc" } } },
+      { residente: { nombre: "asc" } },
+    ],
   });
 
   const [total, autos, motos, camionetas, furgones, otros] = await Promise.all([

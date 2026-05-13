@@ -11,8 +11,8 @@ export async function GET(req: Request) {
   if (!mes) return NextResponse.json({ error: "Mes requerido" }, { status: 400 });
 
   const [year, month] = mes.split("-").map(Number);
-  const inicioMes = new Date(year, month - 1, 1);
-  const finMes    = new Date(year, month, 1);
+  const inicioMes = new Date(Date.UTC(year, month - 1, 1));
+  const finMes    = new Date(Date.UTC(year, month, 1));
 
   const [perfil, todosGastos] = await Promise.all([
     prisma.perfilCondominio.findFirst(),

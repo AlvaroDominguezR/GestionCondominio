@@ -70,7 +70,7 @@ type GastoPagado = {
   departamento: { numero: string; torre: { nombre: string } };
 };
 type Perfil   = { nombre: string; direccion: string; comuna: string; ciudad: string; telefono: string; email: string } | null;
-type Totales  = { totalIngresos: number; totalEgresos: number; totalGastosPagados: number; balance: number };
+type Totales  = { totalIngresos: number; totalEgresos: number; totalGastosPagados: number; balance: number; saldoInicial: number; saldoFinal: number };
 
 type Props = {
   perfil: Perfil;
@@ -157,6 +157,10 @@ export function ReporteFinanzasPDF({ perfil, mes, ingresos, egresos, gastosPagad
 
         {/* Tarjetas resumen */}
         <View style={styles.cards}>
+          <View style={styles.card}>
+            <Text style={styles.cardLabel}>Saldo de apertura</Text>
+            <Text style={[styles.cardValue, { color: "#111827" }]}>{formatMonto(totales.saldoInicial)}</Text>
+          </View>
           <View style={styles.card}>
             <Text style={styles.cardLabel}>Gastos comunes cobrados</Text>
             <Text style={[styles.cardValue, { color: "#16a34a" }]}>{formatMonto(totales.totalGastosPagados)}</Text>
@@ -246,7 +250,10 @@ export function ReporteFinanzasPDF({ perfil, mes, ingresos, egresos, gastosPagad
 
         {/* Balance final */}
         <View style={styles.balanceBox}>
-          <Text style={styles.balanceLabel}>Balance neto del mes</Text>
+          <View>
+            <Text style={styles.balanceLabel}>Balance neto del mes</Text>
+            <Text style={[styles.balanceLabel, { fontSize: 10, marginTop: 4 }]}>Saldo cierre: {formatMonto(totales.saldoFinal)}</Text>
+          </View>
           <Text style={styles.balanceValue}>{formatMonto(totales.balance)}</Text>
         </View>
 

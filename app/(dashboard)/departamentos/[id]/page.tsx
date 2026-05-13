@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useEffect, use } from "react";
-import { Users, Plus, Trash2, AlertCircle, Pencil, UserCheck, Car, Check, X, Receipt } from "lucide-react";
+import { Users, Plus, Trash2, AlertCircle, Pencil, UserCheck, Car, Check, X, Receipt, FileDown } from "lucide-react";
 import { crearResidente, eliminarResidente, editarResidente, definirDuenoDesdeResidente, definirDuenoExterno, agregarVehiculo, eliminarVehiculo, actualizarDeudaAnterior } from "./actions";
 
 type Vehiculo = { id: number; patente: string; tipo: string };
@@ -40,8 +40,17 @@ type Depto = {
 const TIPOS_VEHICULO = ["AUTO", "MOTO", "CAMIONETA", "FURGON", "OTRO"];
 
 function formatMes(periodo: string) {
-  const d = new Date(periodo);
-  return d.toLocaleDateString("es-CL", { month: "long", year: "numeric" });
+  // periodo puede ser '2026-05' o un string ISO
+  let date: Date;
+  if (/^\d{4}-\d{2}$/.test(periodo)) {
+    // '2026-05'
+    date = new Date(Date.UTC(Number(periodo.slice(0,4)), Number(periodo.slice(5,7))-1, 1));
+  } else {
+    // ISO string
+    date = new Date(periodo);
+  }
+  const meses = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+  return `${meses[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
 }
 
 // ─── Modal Vehículo ─────────────────────────────────────────
@@ -104,6 +113,11 @@ function ModalVehiculo({ depto, onClose }: { depto: Depto; onClose: () => void }
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-gray-700">Patente</label>
                 <input name="patente" type="text" required placeholder="Ej: ABCD12"
+                maxLength={7}
+                  onKeyDown={(e) => {
+                    if (!/[a-zA-Z0-9]/.test(e.key) && e.key !== "Backspace" && e.key !== "Delete" && e.key !== "Tab")
+                      e.preventDefault();
+                  }}
                   className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm uppercase focus:outline-none focus:ring-2 focus:ring-gray-900" />
               </div>
               <div className="space-y-1.5">
@@ -137,7 +151,7 @@ function ModalVehiculo({ depto, onClose }: { depto: Depto; onClose: () => void }
 function ModalDefinirDueno({ depto, onClose }: { depto: Depto; onClose: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
-  const esDueno = depto.tipoOcupacion === "DUENO";
+  const mostrarResidentes = depto.tipoOcupacion === "DUENO" && depto.residentes.length > 0;
 
   async function handleSeleccionarResidente(residenteId: number) {
     setError(null);
@@ -162,7 +176,7 @@ function ModalDefinirDueno({ depto, onClose }: { depto: Depto; onClose: () => vo
         <div>
           <h2 className="text-lg font-bold text-gray-900">Definir dueño</h2>
           <p className="text-sm text-gray-500 mt-1">
-            {esDueno ? "Selecciona cuál de los residentes es el propietario legal." : "Registra los datos del propietario legal del departamento."}
+            {mostrarResidentes ? "Selecciona cuál de los residentes es el propietario legal." : "Registra los datos del propietario legal del departamento."}
           </p>
         </div>
         {error && (
@@ -170,7 +184,7 @@ function ModalDefinirDueno({ depto, onClose }: { depto: Depto; onClose: () => vo
             <AlertCircle className="w-4 h-4 shrink-0" />{error}
           </div>
         )}
-        {esDueno ? (
+        {mostrarResidentes ? (
           <div className="space-y-2">
             {depto.residentes.length === 0 ? (
               <p className="text-sm text-gray-400 text-center py-4">No hay residentes registrados aún.</p>
@@ -203,11 +217,21 @@ function ModalDefinirDueno({ depto, onClose }: { depto: Depto; onClose: () => vo
             </div>
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-gray-700">RUT</label>
-              <input name="rut" type="text" required placeholder="12345678-9" className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900" />
+              <input name="rut" type="text" required placeholder="12345678-9"
+                maxLength={10}
+                onKeyDown={(e) => { if (!/[0-9kK-]/.test(e.key) && e.key !== "Backspace" && e.key !== "Delete" && e.key !== "Tab") e.preventDefault(); }}
+                onBlur={(e) => {
+                  const val = e.target.value.replace(/[^0-9kK]/g, "");
+                  if (val.length > 1) {
+                    e.target.value = val.slice(0, -1) + "-" + val.slice(-1).toUpperCase();
+                  }
+                }}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900" />
             </div>
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-gray-700">Teléfono <span className="text-gray-400">(opcional)</span></label>
-              <input name="telefono" type="text" placeholder="+56 9 1234 5678" className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900" />
+              <input name="telefono" type="text" placeholder="+56 9 1234 5678" onKeyDown={(e) => { if (!/[0-9+\s]/.test(e.key) && e.key !== "Backspace" && e.key !== "Delete" && e.key !== "Tab") e.preventDefault(); }} 
+              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900" />
             </div>
             <div className="flex gap-3 pt-2">
               <button type="submit" disabled={guardando} className="flex-1 bg-gray-900 text-white text-sm font-medium py-3 rounded-lg hover:bg-gray-700 disabled:opacity-50">
@@ -270,11 +294,20 @@ function FormResidente({ index, total, jefeAsignado, onSubmit, onCancel, guardan
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-gray-700">RUT</label>
             <input name="rut" type="text" required placeholder="12345678-9" autoComplete="off" defaultValue={defaultValues?.rut ?? ""}
+              maxLength={10}
+              onKeyDown={(e) => { if (!/[0-9kK-]/.test(e.key) && e.key !== "Backspace" && e.key !== "Delete" && e.key !== "Tab") e.preventDefault(); }}
+              onBlur={(e) => {
+                const val = e.target.value.replace(/[^0-9kK]/g, "");
+                if (val.length > 1) {
+                  e.target.value = val.slice(0, -1) + "-" + val.slice(-1).toUpperCase();
+                }
+              }}
               className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900" />
           </div>
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-gray-700">Teléfono <span className="text-gray-400">(opcional)</span></label>
             <input name="telefono" type="text" placeholder="+56 9 1234 5678" autoComplete="off" defaultValue={defaultValues?.telefono ?? ""}
+              onKeyDown={(e) => { if (!/[0-9+\s]/.test(e.key) && e.key !== "Backspace" && e.key !== "Delete" && e.key !== "Tab") e.preventDefault(); }}
               className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900" />
           </div>
           {!jefeAsignado && (
@@ -413,6 +446,10 @@ export default function DepartamentoPage({ params }: { params: Promise<{ id: str
     setRefresh((n) => n + 1);
   }
 
+  function handleReporte() {
+    window.open(`/api/reportes/departamento?id=${id}`, "_blank");
+  }
+
   return (
     <div className="space-y-8">
 
@@ -427,6 +464,10 @@ export default function DepartamentoPage({ params }: { params: Promise<{ id: str
             <p className="text-sm text-gray-500 mt-1">{depto.torre.nombre} · Sector {depto.torre.sector}</p>
           </div>
           <div className="flex items-center gap-2">
+            <button onClick={handleReporte}
+              className="flex items-center gap-2 border border-gray-200 text-gray-700 text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-gray-50 transition-colors">
+              <FileDown className="w-4 h-4" />Reporte
+            </button>
             <button onClick={() => setModalDueno(true)}
               className="flex items-center gap-2 border border-gray-200 text-gray-700 text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-gray-50 transition-colors">
               <UserCheck className="w-4 h-4" />

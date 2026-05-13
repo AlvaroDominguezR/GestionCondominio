@@ -26,7 +26,12 @@ export async function GET(req: Request) {
       departamento: { include: { torre: true } },
       vehiculos: true,
     },
-    orderBy: { nombre: "asc" },
+    orderBy: [
+      { departamento: { torre: { sector: "asc" } } },
+      { departamento: { torre: { nombre: "asc" } } },
+      { departamento: { numero: "asc" } },
+      { nombre: "asc" },
+    ],
   });
 
   const [total, conJefe, conVehiculo] = await Promise.all([

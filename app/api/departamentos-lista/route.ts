@@ -8,15 +8,16 @@ export async function GET(req: Request) {
 
   // Mes actual para estado de gasto común
   const hoy = new Date();
-  const periodoInicio = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-  const periodoFin    = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 1);
-
+  const periodoInicio = new Date(Date.UTC(hoy.getFullYear(), hoy.getMonth(), 1));
+  const periodoFin    = new Date(Date.UTC(hoy.getFullYear(), hoy.getMonth() + 1, 1));
+  const sinHabitantes = searchParams.get("sinHabitantes") === "true";
+  
   const departamentos = await prisma.departamento.findMany({
     where: {
       AND: [
         q ? { numero: { contains: q } } : {},
         sector !== "todos" ? { torre: { sector } } : {},
-        { residentes: { some: {} } }, // solo ocupados
+        sinHabitantes ? { residentes: { none: {} } } : { residentes: { some: {} } },
       ],
     },
     include: {

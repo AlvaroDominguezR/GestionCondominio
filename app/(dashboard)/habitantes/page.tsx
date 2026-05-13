@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Search, Users, UserCheck, Car } from "lucide-react";
+import { Search, Users, UserCheck, Car, FileDown } from "lucide-react";
 
 type Residente = {
   id: number;
@@ -55,42 +55,53 @@ export default function HabitantesPage() {
     return () => clearTimeout(timeout);
   }, [cargar]);
 
+  // Función
+    function handleExportarExcel() {
+      window.open("/api/exportar/residentes", "_blank");
+  }
+
   return (
     <div className="space-y-8">
 
       {/* Encabezado */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Habitantes</h1>
-        <p className="text-sm text-gray-500 mt-1">Gestión de residentes del condominio</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Habitantes</h1>
+          <p className="text-sm text-gray-500 mt-1">Listado de habitantes del condominio</p>
+        </div>
+        <button onClick={handleExportarExcel}
+          className="flex items-center gap-2 border border-gray-200 text-gray-700 text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-gray-50 transition-colors">
+          <FileDown className="w-4 h-4" />Excel
+        </button>
       </div>
 
       {/* Tarjetas */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white border border-gray-200 rounded-xl p-5 flex items-center gap-4">
-          <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center shrink-0">
-            <Users className="w-5 h-5 text-blue-600" />
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="bg-white border border-gray-200 rounded-lg p-3 flex items-center gap-3">
+          <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center shrink-0">
+            <Users className="w-4 h-4 text-blue-600" />
           </div>
           <div>
             <p className="text-xs text-gray-400">Total habitantes</p>
-            <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+            <p className="text-lg font-bold text-gray-900">{stats.total}</p>
           </div>
         </div>
-        <div className="bg-white border border-gray-200 rounded-xl p-5 flex items-center gap-4">
-          <div className="w-10 h-10 bg-green-50 rounded-lg flex items-center justify-center shrink-0">
-            <UserCheck className="w-5 h-5 text-green-600" />
+        <div className="bg-white border border-gray-200 rounded-lg p-3 flex items-center gap-3">
+          <div className="w-8 h-8 bg-green-50 rounded-lg flex items-center justify-center shrink-0">
+            <UserCheck className="w-4 h-4 text-green-600" />
           </div>
           <div>
-            <p className="text-xs text-gray-400">Con jefe de hogar asignado</p>
-            <p className="text-2xl font-bold text-gray-900">{stats.conJefe}</p>
+            <p className="text-xs text-gray-400">Jefes de hogar</p>
+            <p className="text-lg font-bold text-gray-900">{stats.conJefe}</p>
           </div>
         </div>
-        <div className="bg-white border border-gray-200 rounded-xl p-5 flex items-center gap-4">
-          <div className="w-10 h-10 bg-orange-50 rounded-lg flex items-center justify-center shrink-0">
-            <Car className="w-5 h-5 text-orange-500" />
+        <div className="bg-white border border-gray-200 rounded-lg p-3 flex items-center gap-3">
+          <div className="w-8 h-8 bg-orange-50 rounded-lg flex items-center justify-center shrink-0">
+            <Car className="w-4 h-4 text-orange-500" />
           </div>
           <div>
-            <p className="text-xs text-gray-400">Con vehículo registrado</p>
-            <p className="text-2xl font-bold text-gray-900">{stats.conVehiculo}</p>
+            <p className="text-xs text-gray-400">Con vehículo</p>
+            <p className="text-lg font-bold text-gray-900">{stats.conVehiculo}</p>
           </div>
         </div>
       </div>

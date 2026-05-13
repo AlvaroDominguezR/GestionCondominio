@@ -14,7 +14,7 @@ export async function GET(req: Request) {
   const inicioMes = new Date(year, month - 1, 1);
   const finMes    = new Date(year, month, 1);
 
-  const [perfil, ingresos, egresos, gastosPagados] = await Promise.all([
+  const [perfil, ingresos, egresos, gastosPagados, prevIngresosAgg, prevEgresosAgg, prevGastosPagadosAgg] = await Promise.all([
     prisma.perfilCondominio.findFirst(),
     prisma.ingreso.findMany({
       where: { fecha: { gte: inicioMes, lt: finMes } },
@@ -29,12 +29,21 @@ export async function GET(req: Request) {
       include: { departamento: { include: { torre: true } } },
       orderBy: { fechaPago: "asc" },
     }),
+    prisma.ingreso.aggregate({ where: { fecha: { lt: inicioMes } }, _sum: { monto: true } }),
+    prisma.egreso.aggregate({ where: { fecha: { lt: inicioMes } }, _sum: { monto: true } }),
+    prisma.gastoComun.aggregate({ where: { estadoPago: "PAGADO", fechaPago: { lt: inicioMes } }, _sum: { monto: true } }),
   ]);
 
   const totalIngresos      = ingresos.reduce((acc, i) => acc + i.monto, 0);
   const totalEgresos       = egresos.reduce((acc, e) => acc + e.monto, 0);
   const totalGastosPagados = gastosPagados.reduce((acc, g) => acc + g.monto, 0);
   const balance            = totalGastosPagados + totalIngresos - totalEgresos;
+
+  const totalPrevIngresos      = prevIngresosAgg._sum.monto ?? 0;
+  const totalPrevEgresos       = prevEgresosAgg._sum.monto ?? 0;
+  const totalPrevGastosPagados = prevGastosPagadosAgg._sum.monto ?? 0;
+  const saldoInicial           = totalPrevGastosPagados + totalPrevIngresos - totalPrevEgresos;
+  const saldoFinal             = saldoInicial + balance;
 
   const meses = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
   const mesLabel = `${meses[month - 1]} ${year}`;
@@ -46,7 +55,7 @@ export async function GET(req: Request) {
       ingresos,
       egresos,
       gastosPagados,
-      totales: { totalIngresos, totalEgresos, totalGastosPagados, balance },
+      totales: { totalIngresos, totalEgresos, totalGastosPagados, balance, saldoInicial, saldoFinal },
     }) as any
   );
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Receipt, CheckCircle2, Clock, AlertCircle, Settings, CreditCard, FileDown } from "lucide-react";
+import { Receipt, CheckCircle2, Clock, AlertCircle, Settings, CreditCard, FileDown, Search } from "lucide-react";
 import Link from "next/link";
 
 type GastoDepto = {
@@ -21,7 +21,7 @@ type UltimoPago = {
   id: number;
   monto: number;
   periodo: string;
-  fechaPago: string;
+  fechaPago: string | null;
   departamento: {
     numero: string;
     torre: { nombre: string };
@@ -63,7 +63,7 @@ function formatMes(periodo: string) {
 }
 
 // ─── Modal Registrar Pago ───────────────────────────────────
-function ModalRegistrarPago({ onClose, onPagado }: { onClose: () => void; onPagado: () => void }) {
+function ModalRegistrarPago({ onClose, onPagado }: { onClose: () => void; onPagado: () => Promise<void> }) {
   const [paso, setPaso]                   = useState<"torre" | "depto" | "meses">("torre");
   const [torres, setTorres]               = useState<Torre[]>([]);
   const [torreSeleccionada, setTorre]     = useState<Torre | null>(null);
@@ -100,13 +100,22 @@ function ModalRegistrarPago({ onClose, onPagado }: { onClose: () => void; onPaga
     const seleccionados = meses
       .filter((m) => mesesSeleccionados.includes(m.key))
       .map((m) => ({ key: m.key, gastoId: m.gastoId }));
-    await fetch("/api/gastos/registrar-pago", {
+
+    const res = await fetch("/api/gastos/registrar-pago", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ departamentoId: deptoSeleccionado?.id, mesesSeleccionados: seleccionados }),
     });
+
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.error ?? "No se pudo registrar el pago.");
+      setGuardando(false);
+      return;
+    }
+
+    await onPagado();
     setGuardando(false);
-    onPagado();
     onClose();
   }
 
@@ -221,27 +230,52 @@ export default function GastosPage() {
   const [modalPago, setModalPago]     = useState(false);
   const [generando, setGenerando]     = useState(false);
   const [nuevoMonto, setNuevoMonto]   = useState("");
-
+  const [busquedaDepto, setBusquedaDepto] = useState("");
+  const [totalDeptosOcupados, setTotalDeptosOcupados] = useState(0);
+  const [generadoUnaVez, setGeneradoUnaVez] = useState(false);
   const cargar = useCallback(async () => {
     setCargando(true);
     const [resGastos, resUltimos] = await Promise.all([
-      fetch(`/api/gastos?mes=${mes}`).then((r) => r.json()),
-      fetch("/api/gastos/ultimos-pagos").then((r) => r.json()),
+      fetch(`/api/gastos?mes=${mes}`, { cache: "no-store" }).then((r) => r.json()),
+      fetch("/api/gastos/ultimos-pagos", { cache: "no-store" }).then((r) => r.json()),
     ]);
     setGastos(resGastos.gastos ?? []);
     setStats(resGastos.stats ?? { totalDeptos: 0, pagados: 0, pendientes: 0, atrasados: 0, montoTotal: 0, montoPagado: 0 });
     setConfig(resGastos.config ?? { montoMensual: 0 });
     setNuevoMonto(String(resGastos.config?.montoMensual ?? 0));
+    setTotalDeptosOcupados(resGastos.totalDepartamentosOcupados ?? 0);
     setUltimos(resUltimos.pagos ?? []);
     setCargando(false);
   }, [mes]);
 
   useEffect(() => { cargar(); }, [cargar]);
+  useEffect(() => { setGeneradoUnaVez(false); }, [mes]);
 
   async function handleGenerarCobros() {
-    if (config.montoMensual === 0) { alert("Define primero el monto mensual."); return; }
+    if (config.montoMensual === 0) {
+      alert("Define primero el monto mensual.");
+      return;
+    }
+
+    if (generadoUnaVez) return;
+
     setGenerando(true);
-    await fetch("/api/gastos/generar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mes }) });
+    const res = await fetch("/api/gastos/generar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mes }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.error ?? "No se pudo generar el cobro.");
+    } else if (data.generados === 0) {
+      alert(data.message ?? "No hay departamentos pendientes para generar este mes.");
+      setGeneradoUnaVez(true);
+    } else {
+      setGeneradoUnaVez(true);
+    }
+
     await cargar();
     setGenerando(false);
   }
@@ -265,6 +299,10 @@ export default function GastosPage() {
     ATRASADO:  "bg-red-50 text-red-700",
   };
 
+  const gastosFiltrados = gastos.filter((g) =>
+  busquedaDepto === "" || g.departamento.numero.includes(busquedaDepto)
+  );
+
   return (
     <div className="space-y-8">
 
@@ -287,14 +325,14 @@ export default function GastosPage() {
             className="flex items-center gap-2 border border-gray-200 text-gray-700 text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-gray-50 transition-colors">
             <CreditCard className="w-4 h-4" />Registrar pago
           </button>
-          <button onClick={handleGenerarCobros} disabled={generando || gastos.length > 0}
+          <button onClick={handleGenerarCobros} disabled={generando || totalDeptosOcupados === 0 || stats.totalDeptos >= totalDeptosOcupados || generadoUnaVez}
             className="flex items-center gap-2 bg-gray-900 text-white text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed">
             <Receipt className="w-4 h-4" />
-            {generando ? "Generando..." : "Generar cobros del mes"}
+            {generando ? "Generando..." : generadoUnaVez || stats.totalDeptos >= totalDeptosOcupados ? "Cobros ya generados" : "Generar cobros del mes"}
           </button>
           <button onClick={handleDescargarPDFGastos}
             className="flex items-center gap-1.5 text-sm font-medium px-4 py-2.5 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200 transition-colors">
-            <FileDown className="w-4 h-4" />PDF
+            <FileDown className="w-4 h-4" />Generar reporte
           </button>
         </div>
       </div>
@@ -304,7 +342,6 @@ export default function GastosPage() {
         <label className="text-sm font-medium text-gray-700">Período:</label>
         <input type="month" value={mes} onChange={(e) => setMes(e.target.value)}
           className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900" />
-        <span className="text-sm text-gray-500">{mes ? formatMes(mes) : ""}</span>
       </div>
 
       {/* Tarjetas */}
@@ -368,7 +405,19 @@ export default function GastosPage() {
         {/* Tab: Estado del mes */}
         {pestana === "estado" && (
           <>
-            {!cargando && gastos.length === 0 ? (
+            <div className="px-6 py-3 border-b border-gray-100">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  value={busquedaDepto}
+                  onChange={(e) => setBusquedaDepto(e.target.value.replace(/[^0-9]/g, ""))}
+                  placeholder="Buscar por número de departamento..."
+                  className="w-full border border-gray-200 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+                />
+              </div>
+            </div>
+            {!cargando && gastosFiltrados.length === 0 ? (
               <div className="px-6 py-16 text-center space-y-2">
                 <p className="text-sm text-gray-400">No hay cobros generados para este período.</p>
                 <p className="text-xs text-gray-400">Presiona "Generar cobros del mes" para crear los registros.</p>
@@ -386,7 +435,7 @@ export default function GastosPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {gastos.map((g, i) => (
+                    {gastosFiltrados.map((g, i) => (
                       <tr key={g.id} className={`border-b border-gray-100 last:border-0 ${i % 2 === 0 ? "" : "bg-gray-50/50"}`}>
                         <td className="px-6 py-4 font-medium text-gray-900">{g.departamento.numero || "Sin número"}</td>
                         <td className="px-6 py-4 text-gray-500">{g.departamento.torre.nombre}</td>
@@ -416,7 +465,7 @@ export default function GastosPage() {
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead>
+                 <thead>
                     <tr className="border-b border-gray-100 bg-gray-50">
                       <th className="text-left px-6 py-3 font-medium text-gray-500">Departamento</th>
                       <th className="text-left px-6 py-3 font-medium text-gray-500">Torre</th>
@@ -430,9 +479,9 @@ export default function GastosPage() {
                       <tr key={p.id} className={`border-b border-gray-100 last:border-0 ${i % 2 === 0 ? "" : "bg-gray-50/50"}`}>
                         <td className="px-6 py-4 font-medium text-gray-900">{p.departamento.numero || "Sin número"}</td>
                         <td className="px-6 py-4 text-gray-500">{p.departamento.torre.nombre}</td>
-                        <td className="px-6 py-4 text-gray-500 capitalize">{formatMes(p.periodo.slice(0, 7))}</td>
+                        <td className="px-6 py-4 text-gray-500 capitalize">{formatMes(p.periodo)}</td>
                         <td className="px-6 py-4 text-gray-900">${p.monto.toLocaleString("es-CL")}</td>
-                        <td className="px-6 py-4 text-gray-500">{new Date(p.fechaPago).toLocaleDateString("es-CL")}</td>
+                        <td className="px-6 py-4 text-gray-500">{p.fechaPago ? new Date(p.fechaPago).toLocaleDateString("es-CL") : "—"}</td>
                       </tr>
                     ))}
                   </tbody>

@@ -14,22 +14,32 @@ export async function GET(req: Request) {
   if (!mes) return NextResponse.json({ gastos: [], stats: {}, config });
 
   const [year, month] = mes.split("-").map(Number);
-  const periodoInicio = new Date(year, month - 1, 1);
-  const periodoFin    = new Date(year, month, 1);
+  const periodoInicio = new Date(Date.UTC(year, month - 1, 1));
+  const periodoFin    = new Date(Date.UTC(year, month, 1));
 
-  // Marcar atrasados automáticamente
+  // Marcar atrasados automáticamente solo si ya existe un cobro generado para ese período
   const hoy = new Date();
   if (periodoFin < hoy) {
-    await prisma.gastoComun.updateMany({
-      where: { periodo: { gte: periodoInicio, lt: periodoFin }, estadoPago: "PENDIENTE" },
-      data:  { estadoPago: "ATRASADO" },
+    const cobrosGenerados = await prisma.gastoComun.count({
+      where: { periodo: { gte: periodoInicio, lt: periodoFin } },
     });
+
+    if (cobrosGenerados > 0) {
+      await prisma.gastoComun.updateMany({
+        where: { periodo: { gte: periodoInicio, lt: periodoFin }, estadoPago: "PENDIENTE" },
+        data:  { estadoPago: "ATRASADO" },
+      });
+    }
   }
 
   const gastos = await prisma.gastoComun.findMany({
     where: { periodo: { gte: periodoInicio, lt: periodoFin } },
     include: { departamento: { include: { torre: true } } },
     orderBy: [{ departamento: { torre: { nombre: "asc" } } }, { departamento: { numero: "asc" } }],
+  });
+
+  const totalDepartamentosOcupados = await prisma.departamento.count({
+    where: { residentes: { some: {} } },
   });
 
   const pagados    = gastos.filter((g) => g.estadoPago === "PAGADO").length;
@@ -42,5 +52,6 @@ export async function GET(req: Request) {
     gastos,
     config,
     stats: { totalDeptos: gastos.length, pagados, pendientes, atrasados, montoTotal, montoPagado },
-  });
+    totalDepartamentosOcupados,
+  }, { headers: { "Cache-Control": "no-store" } });
 }

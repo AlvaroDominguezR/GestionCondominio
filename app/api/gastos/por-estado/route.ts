@@ -11,8 +11,8 @@ export async function GET(req: Request) {
   }
 
   const [year, month] = mes.split("-").map(Number);
-  const periodoInicio = new Date(year, month - 1, 1);
-  const periodoFin    = new Date(year, month, 1);
+  const periodoInicio = new Date(Date.UTC(year, month - 1, 1));
+  const periodoFin    = new Date(Date.UTC(year, month, 1));
 
   const gastos = await prisma.gastoComun.findMany({
     where: {
@@ -40,6 +40,7 @@ export async function GET(req: Request) {
         where: {
           departamentoId: g.departamentoId,
           estadoPago: { in: ["PENDIENTE", "ATRASADO"] },
+          periodo: { lt: periodoFin },
         },
       });
       return { ...g, mesesAtrasados };

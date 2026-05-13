@@ -1,31 +1,27 @@
-import { prisma } from "@/lib/prisma";
+"use client";
+
 import Link from "next/link";
+import { useState, useEffect } from "react";
 import { Building2, ChevronRight } from "lucide-react";
 import { eliminarTorre } from "./actions";
- 
-export default async function TorresPage() {
-  const torres = await prisma.torre.findMany({
-    orderBy: [{ sector: "asc" }, { nombre: "asc" }],
-    include: {
-      _count: { select: { departamentos: true } },
-    },
-  });
- 
-  const sectorA = torres.filter((t) => t.sector === "A");
-  const sectorB = torres.filter((t) => t.sector === "B");
- 
-  const SectorCard = ({
-    sector,
-    lista,
-    color,
-  }: {
-    sector: string;
-    lista: typeof torres;
-    color: string;
-  }) => (
+
+type Torre = {
+  id: number;
+  nombre: string;
+  sector: string;
+  _count: { departamentos: number };
+  departamentosOcupados: number;
+};
+
+function SectorCard({ sector, lista, color, onEliminar }: {
+  sector: string;
+  lista: Torre[];
+  color: string;
+  onEliminar: () => void;
+}) {
+  return (
     <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-      {/* Header sector */}
-      <div className={`px-6 py-4 border-b border-gray-100 flex items-center gap-3`}>
+      <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-3">
         <div className={`w-8 h-8 rounded-lg ${color} flex items-center justify-center`}>
           <span className="text-white font-bold text-sm">{sector}</span>
         </div>
@@ -34,8 +30,7 @@ export default async function TorresPage() {
           <p className="text-xs text-gray-400">{lista.length} de 9 torres registradas</p>
         </div>
       </div>
- 
-      {/* Lista de torres */}
+
       {lista.length === 0 ? (
         <div className="px-6 py-10 text-center text-sm text-gray-400">
           No hay torres en este sector.
@@ -49,7 +44,7 @@ export default async function TorresPage() {
                 <div>
                   <p className="text-sm font-medium text-gray-900">{torre.nombre}</p>
                   <p className="text-xs text-gray-400">
-                    {torre._count.departamentos} departamentos
+                    {torre.departamentosOcupados} de {torre._count.departamentos} departamentos ocupados
                   </p>
                 </div>
               </div>
@@ -60,19 +55,18 @@ export default async function TorresPage() {
                 >
                   Ver <ChevronRight className="w-3 h-3" />
                 </Link>
-                <form
-                  action={async () => {
-                    "use server";
-                    await eliminarTorre(torre.id);
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (confirm(`¿Estás seguro de eliminar ${torre.nombre}? Se eliminarán todos sus departamentos y la información asociada.`)) {
+                      await eliminarTorre(torre.id);
+                      onEliminar();
+                    }
                   }}
+                  className="text-xs text-red-400 hover:text-red-600 transition-colors"
                 >
-                  <button
-                    type="submit"
-                    className="text-xs text-red-400 hover:text-red-600 transition-colors"
-                  >
-                    Eliminar
-                  </button>
-                </form>
+                  Eliminar
+                </button>
               </div>
             </div>
           ))}
@@ -80,11 +74,23 @@ export default async function TorresPage() {
       )}
     </div>
   );
- 
+}
+
+export default function TorresPage() {
+  const [torres, setTorres] = useState<Torre[]>([]);
+  const [refresh, setRefresh] = useState(0);
+
+  useEffect(() => {
+    fetch("/api/torres-lista")
+      .then((r) => r.json())
+      .then((data) => setTorres(data.torres ?? []));
+  }, [refresh]);
+
+  const sectorA = torres.filter((t) => t.sector === "A");
+  const sectorB = torres.filter((t) => t.sector === "B");
+
   return (
     <div className="space-y-8">
- 
-      {/* Encabezado */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Torres</h1>
@@ -101,13 +107,11 @@ export default async function TorresPage() {
           </Link>
         )}
       </div>
- 
-      {/* Sectores */}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <SectorCard sector="A" lista={sectorA} color="bg-blue-600" />
-        <SectorCard sector="B" lista={sectorB} color="bg-green-600" />
+        <SectorCard sector="A" lista={sectorA} color="bg-blue-600" onEliminar={() => setRefresh((n) => n + 1)} />
+        <SectorCard sector="B" lista={sectorB} color="bg-green-600" onEliminar={() => setRefresh((n) => n + 1)} />
       </div>
- 
     </div>
   );
 }

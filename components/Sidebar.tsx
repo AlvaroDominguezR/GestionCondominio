@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 
 const links = [
-  { href: "/",              label: "Dashboard",      icon: LayoutDashboard },
+  { href: "/",              label: "Inicio",      icon: LayoutDashboard },
   { href: "/torres",        label: "Torres",         icon: Building2 },
   { href: "/departamentos", label: "Departamentos",  icon: Home },
   { href: "/habitantes",    label: "Habitantes",     icon: Users },
@@ -37,7 +37,7 @@ export default function Sidebar() {
             <Home className="w-5 h-5 text-white" />
           </div>
           <div>
-            <p className="font-semibold text-gray-900 text-sm leading-tight">CondominioPro</p>
+            <p className="font-semibold text-gray-900 text-sm leading-tight">Condominio Ovalle I y II</p>
             <p className="text-xs text-gray-400 leading-tight">Sistema de Gestión</p>
           </div>
         </div>

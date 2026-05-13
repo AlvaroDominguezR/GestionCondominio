@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Search, Car } from "lucide-react";
+import { Search, Car, FileDown, Motorbike, Truck, Bus, Van, Icon } from "lucide-react";
 
 type Vehiculo = {
   id: number;
@@ -63,28 +63,38 @@ export default function VehiculosPage() {
     return () => clearTimeout(timeout);
   }, [cargar]);
 
+  function handleExportarExcel() {
+    window.open("/api/exportar/vehiculos", "_blank");
+  }
+
   return (
     <div className="space-y-8">
 
       {/* Encabezado */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Vehículos</h1>
-        <p className="text-sm text-gray-500 mt-1">Registro de vehículos del condominio</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Vehículos</h1>
+          <p className="text-sm text-gray-500 mt-1">Registro de vehículos del condominio</p>
+        </div>
+        <button onClick={handleExportarExcel}
+          className="flex items-center gap-2 border border-gray-200 text-gray-700 text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-gray-50 transition-colors">
+          <FileDown className="w-4 h-4" />Excel
+        </button>
       </div>
 
       {/* Tarjetas */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         {[
-          { label: "Total",      value: stats.total,      color: "text-gray-900",   bg: "bg-gray-50" },
-          { label: "Autos",      value: stats.autos,      color: "text-blue-700",   bg: "bg-blue-50" },
-          { label: "Motos",      value: stats.motos,      color: "text-purple-700", bg: "bg-purple-50" },
-          { label: "Camionetas", value: stats.camionetas, color: "text-green-700",  bg: "bg-green-50" },
-          { label: "Furgones",   value: stats.furgones,   color: "text-orange-700", bg: "bg-orange-50" },
-          { label: "Otros",      value: stats.otros,      color: "text-gray-600",   bg: "bg-gray-50" },
-        ].map(({ label, value, color, bg }) => (
+          { label: "Total",      value: stats.total,      color: "text-gray-900",   bg: "bg-gray-50", icon: Car },
+          { label: "Autos",      value: stats.autos,      color: "text-blue-700",   bg: "bg-blue-50", icon: Car },
+          { label: "Motos",      value: stats.motos,      color: "text-purple-700", bg: "bg-purple-50", icon: Motorbike },
+          { label: "Camionetas", value: stats.camionetas, color: "text-green-700",  bg: "bg-green-50", icon: Truck },
+          { label: "Furgones",   value: stats.furgones,   color: "text-orange-700", bg: "bg-orange-50", icon: Bus },
+          { label: "Otros",      value: stats.otros,      color: "text-gray-600",   bg: "bg-gray-50", icon: Van },
+        ].map(({ label, value, color, bg, icon: Icon }) => (
           <div key={label} className="bg-white border border-gray-200 rounded-xl p-4 text-center">
             <div className={`w-8 h-8 ${bg} rounded-lg flex items-center justify-center mx-auto mb-2`}>
-              <Car className={`w-4 h-4 ${color}`} />
+              <Icon className={`w-6 h-6 ${color}`} />
             </div>
             <p className={`text-xl font-bold ${color}`}>{value}</p>
             <p className="text-xs text-gray-400 mt-0.5">{label}</p>

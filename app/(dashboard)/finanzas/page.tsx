@@ -11,10 +11,12 @@ type Movimiento = {
 };
 
 type GastoPagado = {
-  id: number;
-  monto: number;
-  fechaPago: string;
-  departamento: { numero: string; torre: { nombre: string } };
+  deptoId: number;
+  numero: string;
+  torre: string;
+  mesesLabel: string;
+  totalMonto: number;
+  fechaPago: string | null;
 };
 
 type Totales = {
@@ -22,6 +24,8 @@ type Totales = {
   totalEgresos: number;
   totalGastosPagados: number;
   balance: number;
+  saldoInicial: number;
+  saldoFinal: number;
 };
 
 function getMesActual() {
@@ -116,10 +120,13 @@ export default function FinanzasPage() {
   const [ingresos, setIngresos]     = useState<Movimiento[]>([]);
   const [egresos, setEgresos]       = useState<Movimiento[]>([]);
   const [gastos, setGastos]         = useState<GastoPagado[]>([]);
-  const [totales, setTotales]       = useState<Totales>({ totalIngresos: 0, totalEgresos: 0, totalGastosPagados: 0, balance: 0 });
+  const [totales, setTotales]       = useState<Totales>({ totalIngresos: 0, totalEgresos: 0, totalGastosPagados: 0, balance: 0, saldoInicial: 0, saldoFinal: 0 });
   const [cargando, setCargando]     = useState(true);
   const [modalTipo, setModalTipo]   = useState<"ingreso" | "egreso" | null>(null);
   const [refresh, setRefresh]       = useState(0);
+  const [modalAnual, setModalAnual]   = useState(false);
+  const [mesInicio, setMesInicio]     = useState("");
+  const [mesFin, setMesFin]           = useState("");
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -128,7 +135,7 @@ export default function FinanzasPage() {
     setIngresos(data.ingresos ?? []);
     setEgresos(data.egresos ?? []);
     setGastos(data.gastosPagados ?? []);
-    setTotales(data.totales ?? { totalIngresos: 0, totalEgresos: 0, totalGastosPagados: 0, balance: 0 });
+    setTotales(data.totales ?? { totalIngresos: 0, totalEgresos: 0, totalGastosPagados: 0, balance: 0, saldoInicial: 0, saldoFinal: 0 });
     setCargando(false);
   }, [mes, refresh]);
 
@@ -167,7 +174,11 @@ export default function FinanzasPage() {
           </button>
           <button onClick={handleDescargarPDF}
             className="flex items-center gap-1.5 text-sm font-medium px-4 py-2.5 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200 transition-colors">
-            <FileDown className="w-4 h-4" />PDF
+            <FileDown className="w-4 h-4" />Reporte Mensual
+          </button>
+          <button onClick={() => setModalAnual(true)}
+            className="flex items-center gap-1.5 text-sm font-medium px-4 py-2.5 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200 transition-colors">
+            <FileDown className="w-4 h-4" />Balance Financiero
           </button>
         </div>
       </div>
@@ -177,11 +188,14 @@ export default function FinanzasPage() {
         <label className="text-sm font-medium text-gray-700">Período:</label>
         <input type="month" value={mes} onChange={(e) => setMes(e.target.value)}
           className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900" />
-        <span className="text-sm text-gray-500">{formatMes(mes)}</span>
       </div>
 
       {/* Tarjetas resumen */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="bg-white border border-gray-200 rounded-xl p-5">
+          <p className="text-xs text-gray-400">Saldo apertura</p>
+          <p className="text-xl font-bold text-gray-900 mt-1">${totales.saldoInicial.toLocaleString("es-CL")}</p>
+        </div>
         <div className="bg-white border border-gray-200 rounded-xl p-5">
           <p className="text-xs text-gray-400">Gastos comunes cobrados</p>
           <p className="text-xl font-bold text-green-600 mt-1">${totales.totalGastosPagados.toLocaleString("es-CL")}</p>
@@ -200,11 +214,12 @@ export default function FinanzasPage() {
           </div>
           <p className="text-xl font-bold text-red-500">${totales.totalEgresos.toLocaleString("es-CL")}</p>
         </div>
-        <div className="bg-white border border-gray-200 rounded-xl p-5">
+        <div className="bg-white border border-gray-200 rounded-xl p-5 col-span-2 sm:col-span-4">
           <p className="text-xs text-gray-400">Balance neto</p>
           <p className={`text-xl font-bold mt-1 ${totales.balance >= 0 ? "text-gray-900" : "text-red-600"}`}>
             ${totales.balance.toLocaleString("es-CL")}
           </p>
+          <p className="text-sm text-gray-500 mt-2">Saldo cierre: ${totales.saldoFinal.toLocaleString("es-CL")}</p>
         </div>
       </div>
 
@@ -300,17 +315,23 @@ export default function FinanzasPage() {
                 <tr className="border-b border-gray-100 bg-gray-50">
                   <th className="text-left px-6 py-3 font-medium text-gray-500">Departamento</th>
                   <th className="text-left px-6 py-3 font-medium text-gray-500">Torre</th>
+                  <th className="text-left px-6 py-3 font-medium text-gray-500">Meses pagados</th>
+                  <th className="text-left px-6 py-3 font-medium text-gray-500">Total</th>
                   <th className="text-left px-6 py-3 font-medium text-gray-500">Fecha pago</th>
-                  <th className="text-left px-6 py-3 font-medium text-gray-500">Monto</th>
                 </tr>
               </thead>
               <tbody>
                 {gastos.map((g, idx) => (
-                  <tr key={g.id} className={`border-b border-gray-100 last:border-0 ${idx % 2 === 0 ? "" : "bg-gray-50/50"}`}>
-                    <td className="px-6 py-4 font-medium text-gray-900">{g.departamento.numero || "Sin número"}</td>
-                    <td className="px-6 py-4 text-gray-500">{g.departamento.torre.nombre}</td>
-                    <td className="px-6 py-4 text-gray-500">{g.fechaPago ? formatFecha(g.fechaPago) : "—"}</td>
-                    <td className="px-6 py-4 font-semibold text-green-600">${g.monto.toLocaleString("es-CL")}</td>
+                  <tr key={g.deptoId} className={`border-b border-gray-100 last:border-0 ${idx % 2 === 0 ? "" : "bg-gray-50/50"}`}>
+                    <td className="px-6 py-4 font-medium text-gray-900">{g.numero}</td>
+                    <td className="px-6 py-4 text-gray-500">{g.torre}</td>
+                    <td className="px-6 py-4 text-gray-500 capitalize">
+                      {g.mesesLabel.includes(",") || g.mesesLabel.includes("/") 
+                        ? g.mesesLabel 
+                        : new Date(g.fechaPago ?? "").toLocaleDateString("es-CL", { month: "long", year: "numeric" })}
+                    </td>
+                    <td className="px-6 py-4 font-semibold text-green-600">${g.totalMonto.toLocaleString("es-CL")}</td>
+                    <td className="px-6 py-4 text-gray-500">{g.fechaPago ? new Date(g.fechaPago).toLocaleDateString("es-CL") : "—"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -323,6 +344,43 @@ export default function FinanzasPage() {
         <ModalMovimiento tipo={modalTipo} onClose={() => setModalTipo(null)} onGuardado={() => setRefresh((n) => n + 1)} />
       )}
 
+      {modalAnual && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-8 space-y-6">
+            <div>
+              <h2 className="text-lg font-bold text-gray-900">Reporte por período</h2>
+              <p className="text-sm text-gray-500 mt-1">Selecciona el rango de meses (mínimo 6)</p>
+            </div>
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-gray-700">Mes inicio</label>
+                <input type="month" value={mesInicio} onChange={(e) => setMesInicio(e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-gray-700">Mes fin</label>
+                <input type="month" value={mesFin} onChange={(e) => setMesFin(e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900" />
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  if (!mesInicio || !mesFin) return;
+                  window.open(`/api/reportes/finanzas-anual?mesInicio=${mesInicio}&mesFin=${mesFin}`, "_blank");
+                  setModalAnual(false);
+                }}
+                className="flex-1 bg-gray-900 text-white text-sm font-medium py-3 rounded-lg hover:bg-gray-700">
+                Generar PDF
+              </button>
+              <button onClick={() => setModalAnual(false)}
+                className="flex-1 border border-gray-200 text-sm text-gray-500 py-3 rounded-lg hover:bg-gray-50">
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

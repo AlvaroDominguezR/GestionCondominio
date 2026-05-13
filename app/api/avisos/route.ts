@@ -14,7 +14,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Título y fecha son obligatorios" }, { status: 400 });
   }
   const aviso = await prisma.aviso.create({
-    data: { titulo, descripcion: descripcion || null, fecha: new Date(fecha) },
+    data: { titulo, descripcion: descripcion || null, fecha: new Date(fecha + "T12:00:00") },
   });
   return NextResponse.json({ ok: true, aviso });
 }

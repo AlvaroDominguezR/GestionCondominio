@@ -11,5 +11,5 @@ export async function GET() {
     },
   });
 
-  return NextResponse.json({ pagos });
+  return NextResponse.json({ pagos }, { headers: { "Cache-Control": "no-store" } });
 }

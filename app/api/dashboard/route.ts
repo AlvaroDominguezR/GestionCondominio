@@ -14,6 +14,7 @@ export async function GET() {
   // Inicio de hoy y fin de semana (7 días)
   const inicioDia = new Date(year, month, hoy.getDate());
   const finSemana = new Date(year, month, hoy.getDate() + 7);
+  const finFuturo = new Date(year + 1, month, hoy.getDate());
 
   const [
     totalDeptos,
@@ -25,6 +26,7 @@ export async function GET() {
     egresosMes,
     ultimosMovimientos,
     avisosSemana,
+    avisosProximos,
   ] = await Promise.all([
     prisma.departamento.count(),
     prisma.departamento.count({ where: { residentes: { some: {} } } }),
@@ -55,6 +57,10 @@ export async function GET() {
       where: { fecha: { gte: inicioDia, lte: finSemana } },
       orderBy: { fecha: "asc" },
     }),
+    prisma.aviso.findMany({
+      where: { fecha: { gte: inicioDia, lte: finFuturo } },
+      orderBy: { fecha: "asc" },
+    }),
   ]);
 
   const gastosPagados    = gastosMes.filter((g) => g.estadoPago === "PAGADO");
@@ -83,5 +89,6 @@ export async function GET() {
     },
     ultimosMovimientos,
     avisosSemana,
+    avisosProximos,
   });
 }

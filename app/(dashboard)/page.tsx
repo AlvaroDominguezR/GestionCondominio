@@ -10,8 +10,17 @@ type Movimiento = { id: number; monto: number; periodo: string; departamento: { 
 type Aviso = { id: number; titulo: string; descripcion: string | null; fecha: string };
 
 function formatMes(periodo: string) {
-  const d = new Date(periodo);
-  return d.toLocaleDateString("es-CL", { month: "long", year: "numeric" });
+  // periodo puede ser '2026-05' o un string ISO
+  let date: Date;
+  if (/^\d{4}-\d{2}$/.test(periodo)) {
+    // '2026-05'
+    date = new Date(Date.UTC(Number(periodo.slice(0,4)), Number(periodo.slice(5,7))-1, 1));
+  } else {
+    // ISO string
+    date = new Date(periodo);
+  }
+  const meses = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+  return `${meses[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
 }
 
 function formatFecha(fecha: string) {
@@ -154,6 +163,7 @@ export default function DashboardPage() {
   const [balance, setBalance]       = useState<Balance>({ gastosPagados: 0, ingresosManuales: 0, egresos: 0, balance: 0, pendientes: 0, atrasados: 0 });
   const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
   const [avisos, setAvisos]         = useState<Aviso[]>([]);
+  const [avisosSemana, setAvisosSemana] = useState<Aviso[]>([]);
   const [modalTipo, setModalTipo]   = useState<"ingreso" | "egreso" | null>(null);
   const [modalAviso, setModalAviso] = useState(false);
   const [refresh, setRefresh]       = useState(0);
@@ -165,7 +175,8 @@ export default function DashboardPage() {
         setStats(data.stats);
         setBalance(data.balance);
         setMovimientos(data.ultimosMovimientos);
-        setAvisos(data.avisosSemana);
+        setAvisos(data.avisosProximos);
+        setAvisosSemana(data.avisosSemana);
       });
   }, [refresh]);
 
@@ -181,18 +192,18 @@ export default function DashboardPage() {
 
       {/* Encabezado */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Inicio</h1>
         <p className="text-sm text-gray-500 mt-1">Resumen general del condominio</p>
       </div>
 
       {/* Avisos de la semana */}
-      {avisos.length > 0 && (
+      {avisosSemana.length > 0 && (
         <div className="bg-blue-50 border border-blue-200 rounded-xl px-5 py-4 space-y-2">
           <div className="flex items-center gap-2 mb-2">
             <Bell className="w-4 h-4 text-blue-600" />
             <p className="text-sm font-semibold text-blue-800">Eventos esta semana</p>
           </div>
-          {avisos.map((a) => (
+          {avisosSemana.map((a) => (
             <div key={a.id} className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-sm font-medium text-blue-900">{a.titulo}</p>
@@ -297,7 +308,7 @@ export default function DashboardPage() {
         {/* Últimos pagos */}
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-            <h2 className="font-semibold text-gray-900">Últimos pagos</h2>
+            <h2 className="font-semibold text-gray-900">Últimos gastos comunes pagados</h2>
             <Link href="/gastos" className="text-xs text-blue-600 hover:text-blue-800">Ver todos →</Link>
           </div>
           {movimientos.length === 0 ? (

@@ -26,15 +26,16 @@ export default function DepartamentosPage() {
   const [q, setQ]               = useState("");
   const [sector, setSector]     = useState("todos");
   const [cargando, setCargando] = useState(true);
+  const [sinHabitantes, setSinHabitantes] = useState(false);
 
   const cargar = useCallback(async () => {
     setCargando(true);
-    const params = new URLSearchParams({ q, sector });
+    const params = new URLSearchParams({ q, sector, sinHabitantes: String(sinHabitantes) });
     const res  = await fetch(`/api/departamentos-lista?${params}`);
     const data = await res.json();
     setDeptos(data.departamentos ?? []);
     setCargando(false);
-  }, [q, sector]);
+  }, [q, sector, sinHabitantes]);
 
   useEffect(() => {
     const timeout = setTimeout(cargar, 200);
@@ -59,7 +60,7 @@ export default function DepartamentosPage() {
           <input
             type="text"
             value={q}
-            onChange={(e) => setQ(e.target.value)}
+            onChange={(e) => setQ(e.target.value.replace(/[^0-9]/g, ""))}
             placeholder="Buscar por número de departamento..."
             className="w-full border border-gray-200 rounded-lg pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
           />
@@ -76,6 +77,15 @@ export default function DepartamentosPage() {
               {s === "todos" ? "Todos" : `Sector ${s}`}
             </button>
           ))}
+          <button
+            onClick={() => setSinHabitantes(!sinHabitantes)}
+            className={`text-xs font-medium px-3 py-1.5 rounded-full border transition-colors
+              ${sinHabitantes
+                ? "bg-gray-900 text-white border-gray-900"
+                : "bg-white text-gray-500 border-gray-200 hover:border-gray-400"
+              }`}>
+            Sin habitantes
+          </button>
         </div>
       </div>
 
