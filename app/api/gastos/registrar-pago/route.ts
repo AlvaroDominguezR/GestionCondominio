@@ -29,8 +29,8 @@ export async function GET(req: Request) {
 
     const gastoExistente = todosLosGastos.find(
       (g) =>
-        new Date(g.periodo).getFullYear() === fecha.getFullYear() &&
-        new Date(g.periodo).getMonth() === fecha.getMonth()
+        new Date(g.periodo).getUTCFullYear() === fecha.getFullYear() &&
+        new Date(g.periodo).getUTCMonth() === fecha.getMonth()
     );
 
     // Si ya está pagado, no lo incluimos en la lista
@@ -49,11 +49,12 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const { departamentoId, mesesSeleccionados } = await req.json();
+  const { departamentoId, mesesSeleccionados, metodoPago } = await req.json();
 
   const config = await prisma.configuracion.findFirst();
   if (!config) return NextResponse.json({ error: "Sin configuración" }, { status: 400 });
 
+  const metodo = metodoPago === "EFECTIVO" ? "EFECTIVO" : "TRANSFERENCIA";
   const fechaPago = new Date();
 
   for (const mes of mesesSeleccionados) {
@@ -61,7 +62,6 @@ export async function POST(req: Request) {
     const periodoInicio = new Date(Date.UTC(year, month - 1, 1));
     const periodoFin = new Date(Date.UTC(year, month, 1));
 
-    // Buscar el gasto del mes por rango UTC (no por fecha exacta)
     const gasto = await prisma.gastoComun.findFirst({
       where: {
         departamentoId,
@@ -73,11 +73,10 @@ export async function POST(req: Request) {
       if (gasto.estadoPago !== "PAGADO") {
         await prisma.gastoComun.update({
           where: { id: gasto.id },
-          data: { estadoPago: "PAGADO", fechaPago },
+          data: { estadoPago: "PAGADO", fechaPago, metodoPago: metodo },
         });
       }
     } else {
-      // Si no existe, lo crea (caso muy raro)
       await prisma.gastoComun.create({
         data: {
           departamentoId,
@@ -85,6 +84,7 @@ export async function POST(req: Request) {
           periodo: periodoInicio,
           estadoPago: "PAGADO",
           fechaPago,
+          metodoPago: metodo,
         },
       });
     }

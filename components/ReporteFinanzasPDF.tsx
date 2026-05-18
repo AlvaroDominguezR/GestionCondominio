@@ -36,10 +36,12 @@ const styles = StyleSheet.create({
   colMeses:    { flex: 2, fontSize: 9, color: "#6b7280" },
   colFecha:    { flex: 1.5, fontSize: 9, color: "#374151", textAlign: "center" },
   colMonto:    { flex: 1.5, fontSize: 9, textAlign: "right" },
+  colMetodo:   { flex: 1.2, fontSize: 9, color: "#374151", textAlign: "center" },
   colDescH:    { flex: 3, fontSize: 8, fontFamily: "Helvetica-Bold", color: "#6b7280" },
   colMesesH:   { flex: 2, fontSize: 8, fontFamily: "Helvetica-Bold", color: "#6b7280" },
   colFechaH:   { flex: 1.5, fontSize: 8, fontFamily: "Helvetica-Bold", color: "#6b7280", textAlign: "center" },
   colMontoH:   { flex: 1.5, fontSize: 8, fontFamily: "Helvetica-Bold", color: "#6b7280", textAlign: "right" },
+  colMetodoH:  { flex: 1.2, fontSize: 8, fontFamily: "Helvetica-Bold", color: "#6b7280", textAlign: "center" },
   totalRow: { flexDirection: "row", padding: "6 8", backgroundColor: "#f9fafb", borderRadius: 4, marginTop: 4 },
   totalLabel: { flex: 4.5, fontSize: 9, fontFamily: "Helvetica-Bold", color: "#374151" },
   totalMonto: { flex: 1.5, fontSize: 10, fontFamily: "Helvetica-Bold", textAlign: "right" },
@@ -60,7 +62,7 @@ function formatFecha(fecha: string | Date) {
   return new Date(fecha).toLocaleDateString("es-CL");
 }
 
-type Ingreso  = { id: number; descripcion: string; monto: number; fecha: string | Date };
+type Ingreso  = { id: number; descripcion: string; monto: number; fecha: string | Date; metodoPago?: string };
 type Egreso   = { id: number; descripcion: string; monto: number; fecha: string | Date };
 type GastoPagado = {
   id: number;
@@ -69,8 +71,9 @@ type GastoPagado = {
   fechaPago: string | Date | null;
   departamento: { numero: string; torre: { nombre: string } };
 };
+type PagoHistorico = { deptoId: number; numero: string; torre: string; mesesLabel: string; cantMeses: number; totalMonto: number; fechaPago: string; metodoPago?: string | null };
 type Perfil   = { nombre: string; direccion: string; comuna: string; ciudad: string; telefono: string; email: string } | null;
-type Totales  = { totalIngresos: number; totalEgresos: number; totalGastosPagados: number; balance: number; saldoInicial: number; saldoFinal: number };
+type Totales  = { totalIngresos: number; totalEgresos: number; totalGastosPagados: number; totalPagosHistoricos: number; balance: number; saldoInicial: number; saldoFinal: number };
 
 type Props = {
   perfil: Perfil;
@@ -78,7 +81,9 @@ type Props = {
   ingresos: Ingreso[];
   egresos: Egreso[];
   gastosPagados: GastoPagado[];
+  pagosHistoricos: PagoHistorico[];
   totales: Totales;
+  totalesPorMetodo?: { transferencia: number; efectivo: number };
 };
 
 // Agrupar gastos por departamento
@@ -89,16 +94,18 @@ type GastoAgrupado = {
   cantMeses: number;
   mesesLabel: string;
   totalMonto: number;
+  metodoPago: string | null;
 };
 
 function agruparGastos(gastos: GastoPagado[]): GastoAgrupado[] {
   const mapa: Record<string, GastoAgrupado & { mesesPorAnio: Record<number, string[]> }> = {};
 
   for (const g of gastos) {
-    const key    = `${g.departamento.numero}-${g.departamento.torre.nombre}`;
+    const metodo = (g as any).metodoPago ?? "TRANSFERENCIA";
+    const key    = `${g.departamento.numero}-${g.departamento.torre.nombre}-${metodo}`;
     const fecha  = new Date(g.periodo);
-    const anio   = fecha.getFullYear();
-    const mesIdx = fecha.getMonth();
+    const anio   = fecha.getUTCFullYear();
+    const mesIdx = fecha.getUTCMonth();
 
     if (!mapa[key]) {
       mapa[key] = {
@@ -108,6 +115,7 @@ function agruparGastos(gastos: GastoPagado[]): GastoAgrupado[] {
         cantMeses:     0,
         mesesLabel:    "",
         totalMonto:    0,
+        metodoPago:    metodo,
         mesesPorAnio:  {},
       };
     }
@@ -125,14 +133,17 @@ function agruparGastos(gastos: GastoPagado[]): GastoAgrupado[] {
   for (const item of Object.values(mapa)) {
     const partes = Object.entries(item.mesesPorAnio)
       .sort(([a], [b]) => Number(a) - Number(b))
-      .map(([anio, meses]) => `${anio}: ${meses.join(", ")}`);
+      .map(([anio, meses]) => {
+        const sorted = [...meses].sort((a, b) => MESES_ABREV.indexOf(a) - MESES_ABREV.indexOf(b));
+        return `${anio}: ${sorted.join(", ")}`;
+      });
     item.mesesLabel = partes.join(" / ");
   }
 
   return Object.values(mapa).sort((a, b) => a.torre.localeCompare(b.torre) || a.depto.localeCompare(b.depto));
 }
 
-export function ReporteFinanzasPDF({ perfil, mes, ingresos, egresos, gastosPagados, totales }: Props) {
+export function ReporteFinanzasPDF({ perfil, mes, ingresos, egresos, gastosPagados, pagosHistoricos, totales, totalesPorMetodo }: Props) {
   const fechaGeneracion = new Date().toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" });
   const gastosAgrupados = agruparGastos(gastosPagados);
 
@@ -166,6 +177,10 @@ export function ReporteFinanzasPDF({ perfil, mes, ingresos, egresos, gastosPagad
             <Text style={[styles.cardValue, { color: "#16a34a" }]}>{formatMonto(totales.totalGastosPagados)}</Text>
           </View>
           <View style={styles.card}>
+            <Text style={styles.cardLabel}>Pago deudas históricas</Text>
+            <Text style={[styles.cardValue, { color: "#16a34a" }]}>{formatMonto(totales.totalPagosHistoricos)}</Text>
+          </View>
+          <View style={styles.card}>
             <Text style={styles.cardLabel}>Otros ingresos</Text>
             <Text style={[styles.cardValue, { color: "#16a34a" }]}>{formatMonto(totales.totalIngresos)}</Text>
           </View>
@@ -183,6 +198,7 @@ export function ReporteFinanzasPDF({ perfil, mes, ingresos, egresos, gastosPagad
               <Text style={styles.colDescH}>Departamento</Text>
               <Text style={styles.colMesesH}>Torre</Text>
               <Text style={styles.colMesesH}>Meses pagados</Text>
+              <Text style={styles.colMetodoH}>Método</Text>
               <Text style={styles.colMontoH}>Total</Text>
             </View>
             {gastosAgrupados.map((g) => (
@@ -191,6 +207,9 @@ export function ReporteFinanzasPDF({ perfil, mes, ingresos, egresos, gastosPagad
                 <Text style={[styles.colMeses, { color: "#6b7280" }]}>{g.torre}</Text>
                 <Text style={[styles.colMeses, { color: "#6b7280" }]}>
                   {g.cantMeses} {g.cantMeses === 1 ? "mes" : "meses"} ({g.mesesLabel})
+                </Text>
+                <Text style={[styles.colMetodo, { color: g.metodoPago === "TRANSFERENCIA" ? "#15803d" : "#4b5563" }]}>
+                  {g.metodoPago === "TRANSFERENCIA" ? "Transferencia" : g.metodoPago === "EFECTIVO" ? "Efectivo" : "—"}
                 </Text>
                 <Text style={[styles.colMonto, { color: "#16a34a" }]}>{formatMonto(g.totalMonto)}</Text>
               </View>
@@ -202,6 +221,35 @@ export function ReporteFinanzasPDF({ perfil, mes, ingresos, egresos, gastosPagad
           </View>
         )}
 
+        {/* Pago deudas históricas */}
+        {pagosHistoricos.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Pago Deudas Históricas</Text>
+            <View style={styles.tableHeader}>
+              <Text style={styles.colDescH}>Departamento</Text>
+              <Text style={styles.colMesesH}>Torre</Text>
+              <Text style={styles.colMesesH}>Meses pagados</Text>
+              <Text style={styles.colMetodoH}>Método</Text>
+              <Text style={styles.colMontoH}>Total</Text>
+            </View>
+            {pagosHistoricos.map((h) => (
+              <View key={h.deptoId} style={styles.tableRow}>
+                <Text style={styles.colDesc}>{h.numero}</Text>
+                <Text style={[styles.colMeses, { color: "#6b7280" }]}>{h.torre}</Text>
+                <Text style={[styles.colMeses, { color: "#6b7280" }]}>{h.cantMeses} {h.cantMeses === 1 ? "mes" : "meses"} ({h.mesesLabel})</Text>
+                <Text style={[styles.colMetodo, { color: h.metodoPago === "TRANSFERENCIA" ? "#15803d" : "#4b5563" }]}>
+                  {h.metodoPago === "TRANSFERENCIA" ? "Transferencia" : h.metodoPago === "EFECTIVO" ? "Efectivo" : "—"}
+                </Text>
+                <Text style={[styles.colMonto, { color: "#16a34a" }]}>{formatMonto(h.totalMonto)}</Text>
+              </View>
+            ))}
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Total pago deudas históricas</Text>
+              <Text style={[styles.totalMonto, { color: "#16a34a" }]}>{formatMonto(totales.totalPagosHistoricos)}</Text>
+            </View>
+          </View>
+        )}
+
         {/* Otros ingresos */}
         {ingresos.length > 0 && (
           <View style={styles.section}>
@@ -209,12 +257,16 @@ export function ReporteFinanzasPDF({ perfil, mes, ingresos, egresos, gastosPagad
             <View style={styles.tableHeader}>
               <Text style={styles.colDescH}>Descripción</Text>
               <Text style={styles.colFechaH}>Fecha</Text>
+              <Text style={styles.colMetodoH}>Método</Text>
               <Text style={styles.colMontoH}>Monto</Text>
             </View>
             {ingresos.map((i) => (
               <View key={i.id} style={styles.tableRow}>
                 <Text style={styles.colDesc}>{i.descripcion}</Text>
                 <Text style={[styles.colFecha, { color: "#6b7280" }]}>{formatFecha(i.fecha)}</Text>
+                <Text style={[styles.colMetodo, { color: i.metodoPago === "TRANSFERENCIA" ? "#15803d" : "#4b5563" }]}>
+                  {i.metodoPago === "TRANSFERENCIA" ? "Transferencia" : i.metodoPago === "EFECTIVO" ? "Efectivo" : "—"}
+                </Text>
                 <Text style={[styles.colMonto, { color: "#16a34a" }]}>{formatMonto(i.monto)}</Text>
               </View>
             ))}
@@ -244,6 +296,23 @@ export function ReporteFinanzasPDF({ perfil, mes, ingresos, egresos, gastosPagad
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Total egresos</Text>
               <Text style={[styles.totalMonto, { color: "#dc2626" }]}>{formatMonto(totales.totalEgresos)}</Text>
+            </View>
+          </View>
+        )}
+
+        {/* Resumen por método de pago */}
+        {totalesPorMetodo && (totalesPorMetodo.transferencia > 0 || totalesPorMetodo.efectivo > 0) && (
+          <View style={[styles.section, { marginBottom: 12 }]}>
+            <Text style={styles.sectionTitle}>Resumen por Método de Pago</Text>
+            <View style={{ flexDirection: "row", gap: 10 }}>
+              <View style={[styles.card, { flex: 1, borderColor: "#bbf7d0" }]}>
+                <Text style={styles.cardLabel}>Total Transferencia</Text>
+                <Text style={[styles.cardValue, { color: "#15803d", fontSize: 13 }]}>{formatMonto(totalesPorMetodo.transferencia)}</Text>
+              </View>
+              <View style={[styles.card, { flex: 1 }]}>
+                <Text style={styles.cardLabel}>Total Efectivo</Text>
+                <Text style={[styles.cardValue, { color: "#374151", fontSize: 13 }]}>{formatMonto(totalesPorMetodo.efectivo)}</Text>
+              </View>
             </View>
           </View>
         )}

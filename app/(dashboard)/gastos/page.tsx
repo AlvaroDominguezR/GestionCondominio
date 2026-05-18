@@ -10,6 +10,7 @@ type GastoDepto = {
   periodo: string;
   estadoPago: string;
   fechaPago: string | null;
+  metodoPago: string | null;
   departamento: {
     id: number;
     numero: string;
@@ -18,14 +19,14 @@ type GastoDepto = {
 };
 
 type UltimoPago = {
-  id: number;
-  monto: number;
-  periodo: string;
+  key: string;
+  deptoId: number;
+  numero: string;
+  torre: string;
+  mesesLabel: string;
+  totalMonto: number;
   fechaPago: string | null;
-  departamento: {
-    numero: string;
-    torre: { nombre: string };
-  };
+  metodoPago: string | null;
 };
 
 type Stats = {
@@ -51,6 +52,16 @@ type MesPago = {
   monto: number;
 };
 
+function BadgeMetodo({ metodo }: { metodo: string | null }) {
+  if (!metodo) return <span className="text-gray-300">—</span>;
+  return (
+    <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full
+      ${metodo === "TRANSFERENCIA" ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-600"}`}>
+      {metodo === "TRANSFERENCIA" ? "Transferencia" : "Efectivo"}
+    </span>
+  );
+}
+
 function getMesActual() {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
@@ -70,6 +81,7 @@ function ModalRegistrarPago({ onClose, onPagado }: { onClose: () => void; onPaga
   const [deptoSeleccionado, setDepto]     = useState<{ id: number; numero: string } | null>(null);
   const [meses, setMeses]                 = useState<MesPago[]>([]);
   const [mesesSeleccionados, setMesesSel] = useState<string[]>([]);
+  const [metodoPago, setMetodoPago]       = useState<"TRANSFERENCIA" | "EFECTIVO">("TRANSFERENCIA");
   const [guardando, setGuardando]         = useState(false);
   const [error, setError]                 = useState<string | null>(null);
 
@@ -104,7 +116,7 @@ function ModalRegistrarPago({ onClose, onPagado }: { onClose: () => void; onPaga
     const res = await fetch("/api/gastos/registrar-pago", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ departamentoId: deptoSeleccionado?.id, mesesSeleccionados: seleccionados }),
+      body: JSON.stringify({ departamentoId: deptoSeleccionado?.id, mesesSeleccionados: seleccionados, metodoPago }),
     });
 
     const data = await res.json();
@@ -195,6 +207,18 @@ function ModalRegistrarPago({ onClose, onPagado }: { onClose: () => void; onPaga
                   <span className="text-sm font-semibold text-gray-900">${m.monto.toLocaleString("es-CL")}</span>
                 </label>
               ))}
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-gray-700">Método de pago</label>
+              <div className="grid grid-cols-2 gap-2">
+                {(["TRANSFERENCIA", "EFECTIVO"] as const).map((m) => (
+                  <label key={m} className={`flex items-center justify-center border rounded-lg px-3 py-2.5 cursor-pointer transition-colors
+                    ${metodoPago === m ? (m === "TRANSFERENCIA" ? "border-green-500 bg-green-50" : "border-gray-400 bg-gray-100") : "border-gray-200 hover:border-gray-300"}`}>
+                    <input type="radio" className="sr-only" checked={metodoPago === m} onChange={() => setMetodoPago(m)} />
+                    <span className="text-sm font-medium text-gray-700">{m === "TRANSFERENCIA" ? "Transferencia" : "Efectivo"}</span>
+                  </label>
+                ))}
+              </div>
             </div>
             {mesesSeleccionados.length > 0 && (
               <div className="bg-gray-50 rounded-lg px-4 py-3 flex items-center justify-between">
@@ -431,6 +455,7 @@ export default function GastosPage() {
                       <th className="text-left px-6 py-3 font-medium text-gray-500">Torre</th>
                       <th className="text-left px-6 py-3 font-medium text-gray-500">Monto</th>
                       <th className="text-left px-6 py-3 font-medium text-gray-500">Estado</th>
+                      <th className="text-left px-6 py-3 font-medium text-gray-500">Método</th>
                       <th className="text-left px-6 py-3 font-medium text-gray-500">Fecha pago</th>
                     </tr>
                   </thead>
@@ -444,6 +469,9 @@ export default function GastosPage() {
                           <span className={`inline-block text-xs font-medium px-2.5 py-1 rounded-full ${estadoColor[g.estadoPago]}`}>
                             {g.estadoPago.charAt(0) + g.estadoPago.slice(1).toLowerCase()}
                           </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <BadgeMetodo metodo={g.estadoPago === "PAGADO" ? g.metodoPago : null} />
                         </td>
                         <td className="px-6 py-4 text-gray-500">
                           {g.fechaPago ? new Date(g.fechaPago).toLocaleDateString("es-CL") : "—"}
@@ -465,22 +493,24 @@ export default function GastosPage() {
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                 <thead>
+                  <thead>
                     <tr className="border-b border-gray-100 bg-gray-50">
                       <th className="text-left px-6 py-3 font-medium text-gray-500">Departamento</th>
                       <th className="text-left px-6 py-3 font-medium text-gray-500">Torre</th>
-                      <th className="text-left px-6 py-3 font-medium text-gray-500">Período</th>
-                      <th className="text-left px-6 py-3 font-medium text-gray-500">Monto</th>
+                      <th className="text-left px-6 py-3 font-medium text-gray-500">Meses pagados</th>
+                      <th className="text-left px-6 py-3 font-medium text-gray-500">Método</th>
+                      <th className="text-left px-6 py-3 font-medium text-gray-500">Total</th>
                       <th className="text-left px-6 py-3 font-medium text-gray-500">Fecha pago</th>
                     </tr>
                   </thead>
                   <tbody>
                     {ultimosPagos.map((p, i) => (
-                      <tr key={p.id} className={`border-b border-gray-100 last:border-0 ${i % 2 === 0 ? "" : "bg-gray-50/50"}`}>
-                        <td className="px-6 py-4 font-medium text-gray-900">{p.departamento.numero || "Sin número"}</td>
-                        <td className="px-6 py-4 text-gray-500">{p.departamento.torre.nombre}</td>
-                        <td className="px-6 py-4 text-gray-500 capitalize">{formatMes(p.periodo)}</td>
-                        <td className="px-6 py-4 text-gray-900">${p.monto.toLocaleString("es-CL")}</td>
+                      <tr key={p.key} className={`border-b border-gray-100 last:border-0 ${i % 2 === 0 ? "" : "bg-gray-50/50"}`}>
+                        <td className="px-6 py-4 font-medium text-gray-900">{p.numero}</td>
+                        <td className="px-6 py-4 text-gray-500">{p.torre}</td>
+                        <td className="px-6 py-4 text-gray-500">{p.mesesLabel}</td>
+                        <td className="px-6 py-4"><BadgeMetodo metodo={p.metodoPago} /></td>
+                        <td className="px-6 py-4 font-semibold text-green-600">${p.totalMonto.toLocaleString("es-CL")}</td>
                         <td className="px-6 py-4 text-gray-500">{p.fechaPago ? new Date(p.fechaPago).toLocaleDateString("es-CL") : "—"}</td>
                       </tr>
                     ))}

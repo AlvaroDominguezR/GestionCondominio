@@ -32,6 +32,7 @@ function ModalMovimiento({ tipo, onClose, onGuardado }: { tipo: "ingreso" | "egr
   const [descripcion, setDescripcion] = useState("");
   const [monto, setMonto]             = useState("");
   const [fecha, setFecha]             = useState(new Date().toISOString().split("T")[0]);
+  const [metodoPago, setMetodoPago]   = useState<"TRANSFERENCIA" | "EFECTIVO">("TRANSFERENCIA");
   const [guardando, setGuardando]     = useState(false);
   const [error, setError]             = useState<string | null>(null);
 
@@ -42,7 +43,7 @@ function ModalMovimiento({ tipo, onClose, onGuardado }: { tipo: "ingreso" | "egr
     const res = await fetch(`/api/${tipo === "ingreso" ? "ingresos" : "egresos"}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ descripcion, monto: parseFloat(monto), fecha }),
+      body: JSON.stringify({ descripcion, monto: parseFloat(monto), fecha, metodoPago }),
     });
     const data = await res.json();
     if (data.error) { setError(data.error); setGuardando(false); return; }
@@ -80,6 +81,20 @@ function ModalMovimiento({ tipo, onClose, onGuardado }: { tipo: "ingreso" | "egr
             <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} required
               className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900" />
           </div>
+          {tipo === "ingreso" && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-gray-700">Método de pago</label>
+              <div className="grid grid-cols-2 gap-2">
+                {(["TRANSFERENCIA", "EFECTIVO"] as const).map((m) => (
+                  <label key={m} className={`flex items-center justify-center border rounded-lg px-3 py-2.5 cursor-pointer transition-colors
+                    ${metodoPago === m ? (m === "TRANSFERENCIA" ? "border-green-500 bg-green-50" : "border-gray-400 bg-gray-100") : "border-gray-200 hover:border-gray-300"}`}>
+                    <input type="radio" className="sr-only" checked={metodoPago === m} onChange={() => setMetodoPago(m)} />
+                    <span className="text-sm font-medium text-gray-700">{m === "TRANSFERENCIA" ? "Transferencia" : "Efectivo"}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="flex gap-3 pt-2">
             <button type="submit" disabled={guardando}
               className={`flex-1 text-white text-sm font-medium py-3 rounded-lg disabled:opacity-50 transition-colors

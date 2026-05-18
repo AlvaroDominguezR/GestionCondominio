@@ -134,6 +134,7 @@ model GastoComun {
   periodo        DateTime     // Primer día del mes: 2024-03-01
   estadoPago     String       @default("PENDIENTE") // "PENDIENTE" | "PAGADO" | "ATRASADO"
   fechaPago      DateTime?
+  metodoPago     String?      // "EFECTIVO" | "TRANSFERENCIA", null si pendiente
 
   // FK → Departamento
   departamentoId Int
@@ -153,9 +154,11 @@ model GastoComun {
 // Solo existe un registro (id = 1).
 // ─────────────────────────────────────────────
 model Configuracion {
-  id            Int      @id @default(autoincrement())
-  montoMensual  Float    @default(0)
-  updatedAt     DateTime @updatedAt
+  id                  Int      @id @default(autoincrement())
+  montoMensual        Float    @default(0)
+  montoHistoricoAntes Float    @default(10000) // hasta 2024
+  montoHistoricoDesde Float    @default(15000) // desde 2025
+  updatedAt           DateTime @updatedAt
 }
 
 // ─────────────────────────────────────────────
@@ -166,6 +169,7 @@ model Ingreso {
   descripcion String
   monto       Float
   fecha       DateTime @default(now())
+  metodoPago  String   @default("TRANSFERENCIA") // "EFECTIVO" | "TRANSFERENCIA"
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }

@@ -8,6 +8,7 @@ type Movimiento = {
   descripcion: string;
   monto: number;
   fecha: string;
+  metodoPago: string;
 };
 
 type GastoPagado = {
@@ -17,12 +18,24 @@ type GastoPagado = {
   mesesLabel: string;
   totalMonto: number;
   fechaPago: string | null;
+  metodoPago: string | null;
+};
+
+type PagoHistorico = {
+  deptoId: number;
+  numero: string;
+  torre: string;
+  mesesLabel: string;
+  totalMonto: number;
+  fechaPago: string;
+  metodoPago: string | null;
 };
 
 type Totales = {
   totalIngresos: number;
   totalEgresos: number;
   totalGastosPagados: number;
+  totalPagosHistoricos: number;
   balance: number;
   saldoInicial: number;
   saldoFinal: number;
@@ -43,11 +56,23 @@ function formatFecha(fecha: string) {
   return new Date(fecha).toLocaleDateString("es-CL");
 }
 
+function BadgeMetodo({ metodo }: { metodo: string | null }) {
+  if (!metodo) return null;
+  const isTransferencia = metodo === "TRANSFERENCIA";
+  return (
+    <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full
+      ${isTransferencia ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-600"}`}>
+      {isTransferencia ? "Transferencia" : "Efectivo"}
+    </span>
+  );
+}
+
 // ─── Modal Ingreso/Egreso ───────────────────────────────────
 function ModalMovimiento({ tipo, onClose, onGuardado }: { tipo: "ingreso" | "egreso"; onClose: () => void; onGuardado: () => void }) {
   const [descripcion, setDescripcion] = useState("");
   const [monto, setMonto]             = useState("");
   const [fecha, setFecha]             = useState(new Date().toISOString().split("T")[0]);
+  const [metodoPago, setMetodoPago]   = useState<"TRANSFERENCIA" | "EFECTIVO">("TRANSFERENCIA");
   const [guardando, setGuardando]     = useState(false);
   const [error, setError]             = useState<string | null>(null);
 
@@ -58,7 +83,7 @@ function ModalMovimiento({ tipo, onClose, onGuardado }: { tipo: "ingreso" | "egr
     const res = await fetch(`/api/${tipo === "ingreso" ? "ingresos" : "egresos"}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ descripcion, monto: parseFloat(monto), fecha }),
+      body: JSON.stringify({ descripcion, monto: parseFloat(monto), fecha, metodoPago }),
     });
     const data = await res.json();
     if (data.error) { setError(data.error); setGuardando(false); return; }
@@ -96,6 +121,20 @@ function ModalMovimiento({ tipo, onClose, onGuardado }: { tipo: "ingreso" | "egr
             <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} required
               className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900" />
           </div>
+          {tipo === "ingreso" && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-gray-700">Método de pago</label>
+              <div className="grid grid-cols-2 gap-2">
+                {(["TRANSFERENCIA", "EFECTIVO"] as const).map((m) => (
+                  <label key={m} className={`flex items-center justify-center border rounded-lg px-3 py-2.5 cursor-pointer transition-colors
+                    ${metodoPago === m ? (m === "TRANSFERENCIA" ? "border-green-500 bg-green-50" : "border-gray-400 bg-gray-100") : "border-gray-200 hover:border-gray-300"}`}>
+                    <input type="radio" className="sr-only" checked={metodoPago === m} onChange={() => setMetodoPago(m)} />
+                    <span className="text-sm font-medium text-gray-700">{m === "TRANSFERENCIA" ? "Transferencia" : "Efectivo"}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="flex gap-3 pt-2">
             <button type="submit" disabled={guardando}
               className={`flex-1 text-white text-sm font-medium py-3 rounded-lg disabled:opacity-50 transition-colors
@@ -116,17 +155,19 @@ function ModalMovimiento({ tipo, onClose, onGuardado }: { tipo: "ingreso" | "egr
 // ─── Página principal ───────────────────────────────────────
 export default function FinanzasPage() {
   const [mes, setMes]               = useState(getMesActual());
-  const [pestana, setPestana]       = useState<"ingresos" | "egresos" | "gastos">("ingresos");
-  const [ingresos, setIngresos]     = useState<Movimiento[]>([]);
-  const [egresos, setEgresos]       = useState<Movimiento[]>([]);
-  const [gastos, setGastos]         = useState<GastoPagado[]>([]);
-  const [totales, setTotales]       = useState<Totales>({ totalIngresos: 0, totalEgresos: 0, totalGastosPagados: 0, balance: 0, saldoInicial: 0, saldoFinal: 0 });
-  const [cargando, setCargando]     = useState(true);
-  const [modalTipo, setModalTipo]   = useState<"ingreso" | "egreso" | null>(null);
-  const [refresh, setRefresh]       = useState(0);
+  const [pestana, setPestana]         = useState<"ingresos" | "egresos" | "gastos" | "historicos">("ingresos");
+  const [ingresos, setIngresos]       = useState<Movimiento[]>([]);
+  const [egresos, setEgresos]         = useState<Movimiento[]>([]);
+  const [gastos, setGastos]           = useState<GastoPagado[]>([]);
+  const [historicos, setHistoricos]   = useState<PagoHistorico[]>([]);
+  const [totales, setTotales]         = useState<Totales>({ totalIngresos: 0, totalEgresos: 0, totalGastosPagados: 0, totalPagosHistoricos: 0, balance: 0, saldoInicial: 0, saldoFinal: 0 });
+  const [cargando, setCargando]       = useState(true);
+  const [modalTipo, setModalTipo]     = useState<"ingreso" | "egreso" | null>(null);
+  const [refresh, setRefresh]         = useState(0);
   const [modalAnual, setModalAnual]   = useState(false);
   const [mesInicio, setMesInicio]     = useState("");
   const [mesFin, setMesFin]           = useState("");
+  const [filtroMetodo, setFiltroMetodo] = useState<"TODOS" | "TRANSFERENCIA" | "EFECTIVO">("TODOS");
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -135,7 +176,8 @@ export default function FinanzasPage() {
     setIngresos(data.ingresos ?? []);
     setEgresos(data.egresos ?? []);
     setGastos(data.gastosPagados ?? []);
-    setTotales(data.totales ?? { totalIngresos: 0, totalEgresos: 0, totalGastosPagados: 0, balance: 0, saldoInicial: 0, saldoFinal: 0 });
+    setHistoricos(data.pagosHistoricos ?? []);
+    setTotales(data.totales ?? { totalIngresos: 0, totalEgresos: 0, totalGastosPagados: 0, totalPagosHistoricos: 0, balance: 0, saldoInicial: 0, saldoFinal: 0 });
     setCargando(false);
   }, [mes, refresh]);
 
@@ -191,7 +233,7 @@ export default function FinanzasPage() {
       </div>
 
       {/* Tarjetas resumen */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
         <div className="bg-white border border-gray-200 rounded-xl p-5">
           <p className="text-xs text-gray-400">Saldo apertura</p>
           <p className="text-xl font-bold text-gray-900 mt-1">${totales.saldoInicial.toLocaleString("es-CL")}</p>
@@ -199,6 +241,10 @@ export default function FinanzasPage() {
         <div className="bg-white border border-gray-200 rounded-xl p-5">
           <p className="text-xs text-gray-400">Gastos comunes cobrados</p>
           <p className="text-xl font-bold text-green-600 mt-1">${totales.totalGastosPagados.toLocaleString("es-CL")}</p>
+        </div>
+        <div className="bg-white border border-gray-200 rounded-xl p-5">
+          <p className="text-xs text-gray-400">Pago deudas históricas</p>
+          <p className="text-xl font-bold text-green-600 mt-1">${totales.totalPagosHistoricos.toLocaleString("es-CL")}</p>
         </div>
         <div className="bg-white border border-gray-200 rounded-xl p-5">
           <div className="flex items-center gap-1.5 mb-1">
@@ -214,7 +260,7 @@ export default function FinanzasPage() {
           </div>
           <p className="text-xl font-bold text-red-500">${totales.totalEgresos.toLocaleString("es-CL")}</p>
         </div>
-        <div className="bg-white border border-gray-200 rounded-xl p-5 col-span-2 sm:col-span-4">
+        <div className="bg-white border border-gray-200 rounded-xl p-5 col-span-2 sm:col-span-5">
           <p className="text-xs text-gray-400">Balance neto</p>
           <p className={`text-xl font-bold mt-1 ${totales.balance >= 0 ? "text-gray-900" : "text-red-600"}`}>
             ${totales.balance.toLocaleString("es-CL")}
@@ -223,13 +269,30 @@ export default function FinanzasPage() {
         </div>
       </div>
 
+      {/* Filtro método de pago */}
+      <div className="flex items-center gap-2">
+        <span className="text-sm text-gray-500">Filtrar por método:</span>
+        {(["TODOS", "TRANSFERENCIA", "EFECTIVO"] as const).map((m) => (
+          <button key={m} onClick={() => setFiltroMetodo(m)}
+            className={`text-xs font-medium px-3 py-1.5 rounded-full border transition-colors
+              ${filtroMetodo === m
+                ? m === "TRANSFERENCIA" ? "bg-green-50 border-green-400 text-green-700"
+                  : m === "EFECTIVO" ? "bg-gray-200 border-gray-400 text-gray-700"
+                  : "bg-gray-900 border-gray-900 text-white"
+                : "border-gray-200 text-gray-500 hover:border-gray-300"}`}>
+            {m === "TODOS" ? "Todos" : m === "TRANSFERENCIA" ? "Transferencia" : "Efectivo"}
+          </button>
+        ))}
+      </div>
+
       {/* Pestañas */}
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
         <div className="flex border-b border-gray-100">
           {[
-            { key: "ingresos", label: `Otros ingresos (${ingresos.length})` },
-            { key: "egresos",  label: `Egresos (${egresos.length})` },
-            { key: "gastos",   label: `Gastos comunes cobrados (${gastos.length})` },
+            { key: "ingresos",   label: `Otros ingresos (${ingresos.length})` },
+            { key: "egresos",    label: `Egresos (${egresos.length})` },
+            { key: "gastos",     label: `Gastos comunes cobrados (${gastos.length})` },
+            { key: "historicos", label: `Pago deudas históricas (${historicos.length})` },
           ].map((p) => (
             <button key={p.key} onClick={() => setPestana(p.key as typeof pestana)}
               className={`px-6 py-4 text-sm font-medium transition-colors border-b-2 -mb-px
@@ -242,24 +305,27 @@ export default function FinanzasPage() {
         </div>
 
         {/* Ingresos */}
-        {pestana === "ingresos" && (
-          ingresos.length === 0 ? (
-            <div className="px-6 py-16 text-center text-sm text-gray-400">No hay ingresos registrados este mes.</div>
+        {pestana === "ingresos" && (() => {
+          const filtrados = filtroMetodo === "TODOS" ? ingresos : ingresos.filter((i) => i.metodoPago === filtroMetodo);
+          return filtrados.length === 0 ? (
+            <div className="px-6 py-16 text-center text-sm text-gray-400">No hay ingresos{filtroMetodo !== "TODOS" ? ` por ${filtroMetodo === "TRANSFERENCIA" ? "transferencia" : "efectivo"}` : ""} registrados este mes.</div>
           ) : (
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50">
                   <th className="text-left px-6 py-3 font-medium text-gray-500">Descripción</th>
                   <th className="text-left px-6 py-3 font-medium text-gray-500">Fecha</th>
+                  <th className="text-left px-6 py-3 font-medium text-gray-500">Método</th>
                   <th className="text-left px-6 py-3 font-medium text-gray-500">Monto</th>
                   <th className="px-6 py-3" />
                 </tr>
               </thead>
               <tbody>
-                {ingresos.map((i, idx) => (
+                {filtrados.map((i, idx) => (
                   <tr key={i.id} className={`border-b border-gray-100 last:border-0 ${idx % 2 === 0 ? "" : "bg-gray-50/50"}`}>
                     <td className="px-6 py-4 text-gray-900">{i.descripcion}</td>
                     <td className="px-6 py-4 text-gray-500">{formatFecha(i.fecha)}</td>
+                    <td className="px-6 py-4"><BadgeMetodo metodo={i.metodoPago} /></td>
                     <td className="px-6 py-4 font-semibold text-green-600">${i.monto.toLocaleString("es-CL")}</td>
                     <td className="px-6 py-4 text-right">
                       <button onClick={() => eliminar(i.id, "ingreso")} className="text-gray-300 hover:text-red-500 transition-colors">
@@ -270,8 +336,8 @@ export default function FinanzasPage() {
                 ))}
               </tbody>
             </table>
-          )
-        )}
+          );
+        })()}
 
         {/* Egresos */}
         {pestana === "egresos" && (
@@ -305,10 +371,11 @@ export default function FinanzasPage() {
           )
         )}
 
-        {/* Gastos comunes pagados */}
-        {pestana === "gastos" && (
-          gastos.length === 0 ? (
-            <div className="px-6 py-16 text-center text-sm text-gray-400">No hay gastos comunes cobrados este mes.</div>
+        {/* Pago deudas históricas */}
+        {pestana === "historicos" && (() => {
+          const filtrados = filtroMetodo === "TODOS" ? historicos : historicos.filter((h) => h.metodoPago === filtroMetodo);
+          return filtrados.length === 0 ? (
+            <div className="px-6 py-16 text-center text-sm text-gray-400">No hay pagos de deuda histórica{filtroMetodo !== "TODOS" ? ` por ${filtroMetodo === "TRANSFERENCIA" ? "transferencia" : "efectivo"}` : ""} este mes.</div>
           ) : (
             <table className="w-full text-sm">
               <thead>
@@ -316,28 +383,63 @@ export default function FinanzasPage() {
                   <th className="text-left px-6 py-3 font-medium text-gray-500">Departamento</th>
                   <th className="text-left px-6 py-3 font-medium text-gray-500">Torre</th>
                   <th className="text-left px-6 py-3 font-medium text-gray-500">Meses pagados</th>
+                  <th className="text-left px-6 py-3 font-medium text-gray-500">Método</th>
                   <th className="text-left px-6 py-3 font-medium text-gray-500">Total</th>
                   <th className="text-left px-6 py-3 font-medium text-gray-500">Fecha pago</th>
                 </tr>
               </thead>
               <tbody>
-                {gastos.map((g, idx) => (
-                  <tr key={g.deptoId} className={`border-b border-gray-100 last:border-0 ${idx % 2 === 0 ? "" : "bg-gray-50/50"}`}>
+                {filtrados.map((h, idx) => (
+                  <tr key={`${h.deptoId}-${h.metodoPago}`} className={`border-b border-gray-100 last:border-0 ${idx % 2 === 0 ? "" : "bg-gray-50/50"}`}>
+                    <td className="px-6 py-4 font-medium text-gray-900">{h.numero}</td>
+                    <td className="px-6 py-4 text-gray-500">{h.torre}</td>
+                    <td className="px-6 py-4 text-gray-500 capitalize">{h.mesesLabel}</td>
+                    <td className="px-6 py-4"><BadgeMetodo metodo={h.metodoPago} /></td>
+                    <td className="px-6 py-4 font-semibold text-green-600">${h.totalMonto.toLocaleString("es-CL")}</td>
+                    <td className="px-6 py-4 text-gray-500">{formatFecha(h.fechaPago)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          );
+        })()}
+
+        {/* Gastos comunes pagados */}
+        {pestana === "gastos" && (() => {
+          const filtrados = filtroMetodo === "TODOS" ? gastos : gastos.filter((g) => g.metodoPago === filtroMetodo);
+          return filtrados.length === 0 ? (
+            <div className="px-6 py-16 text-center text-sm text-gray-400">No hay gastos comunes{filtroMetodo !== "TODOS" ? ` por ${filtroMetodo === "TRANSFERENCIA" ? "transferencia" : "efectivo"}` : ""} cobrados este mes.</div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 bg-gray-50">
+                  <th className="text-left px-6 py-3 font-medium text-gray-500">Departamento</th>
+                  <th className="text-left px-6 py-3 font-medium text-gray-500">Torre</th>
+                  <th className="text-left px-6 py-3 font-medium text-gray-500">Meses pagados</th>
+                  <th className="text-left px-6 py-3 font-medium text-gray-500">Método</th>
+                  <th className="text-left px-6 py-3 font-medium text-gray-500">Total</th>
+                  <th className="text-left px-6 py-3 font-medium text-gray-500">Fecha pago</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtrados.map((g, idx) => (
+                  <tr key={`${g.deptoId}-${g.metodoPago}`} className={`border-b border-gray-100 last:border-0 ${idx % 2 === 0 ? "" : "bg-gray-50/50"}`}>
                     <td className="px-6 py-4 font-medium text-gray-900">{g.numero}</td>
                     <td className="px-6 py-4 text-gray-500">{g.torre}</td>
                     <td className="px-6 py-4 text-gray-500 capitalize">
-                      {g.mesesLabel.includes(",") || g.mesesLabel.includes("/") 
-                        ? g.mesesLabel 
+                      {g.mesesLabel.includes(",") || g.mesesLabel.includes("/")
+                        ? g.mesesLabel
                         : new Date(g.fechaPago ?? "").toLocaleDateString("es-CL", { month: "long", year: "numeric" })}
                     </td>
+                    <td className="px-6 py-4"><BadgeMetodo metodo={g.metodoPago} /></td>
                     <td className="px-6 py-4 font-semibold text-green-600">${g.totalMonto.toLocaleString("es-CL")}</td>
                     <td className="px-6 py-4 text-gray-500">{g.fechaPago ? new Date(g.fechaPago).toLocaleDateString("es-CL") : "—"}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          )
-        )}
+          );
+        })()}
       </div>
 
       {modalTipo && (

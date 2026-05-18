@@ -23,15 +23,17 @@ const styles = StyleSheet.create({
   // Tabla
   tableHeader: { flexDirection: "row", backgroundColor: "#f3f4f6", padding: "4 6", borderRadius: 3, marginBottom: 1 },
   tableRow:    { flexDirection: "row", padding: "3 6", borderBottom: "0.5 solid #f9fafb" },
-  // Gastos cols
-  colDepto:  { flex: 1, fontSize: 8 },
-  colTorre:  { flex: 1.5, fontSize: 8 },
-  colMeses:  { flex: 2.5, fontSize: 8 },
-  colMonto:  { flex: 1.5, fontSize: 8, textAlign: "right" },
-  colDeptoH: { flex: 1, fontSize: 7, fontFamily: "Helvetica-Bold", color: "#6b7280" },
-  colTorreH: { flex: 1.5, fontSize: 7, fontFamily: "Helvetica-Bold", color: "#6b7280" },
-  colMesesH: { flex: 2.5, fontSize: 7, fontFamily: "Helvetica-Bold", color: "#6b7280" },
-  colMontoH: { flex: 1.5, fontSize: 7, fontFamily: "Helvetica-Bold", color: "#6b7280", textAlign: "right" },
+  // Gastos cols (con método)
+  colDepto:   { flex: 1, fontSize: 8 },
+  colTorre:   { flex: 1.5, fontSize: 8 },
+  colMeses:   { flex: 2.5, fontSize: 8 },
+  colMetodo:  { flex: 1.2, fontSize: 8, textAlign: "center" },
+  colMonto:   { flex: 1.5, fontSize: 8, textAlign: "right" },
+  colDeptoH:  { flex: 1, fontSize: 7, fontFamily: "Helvetica-Bold", color: "#6b7280" },
+  colTorreH:  { flex: 1.5, fontSize: 7, fontFamily: "Helvetica-Bold", color: "#6b7280" },
+  colMesesH:  { flex: 2.5, fontSize: 7, fontFamily: "Helvetica-Bold", color: "#6b7280" },
+  colMetodoH: { flex: 1.2, fontSize: 7, fontFamily: "Helvetica-Bold", color: "#6b7280", textAlign: "center" },
+  colMontoH:  { flex: 1.5, fontSize: 7, fontFamily: "Helvetica-Bold", color: "#6b7280", textAlign: "right" },
   // Ing/Egr cols
   colDesc:  { flex: 4, fontSize: 8 },
   colFecha: { flex: 1.5, fontSize: 8, textAlign: "center" },
@@ -41,7 +43,7 @@ const styles = StyleSheet.create({
   colMonH:  { flex: 1.5, fontSize: 7, fontFamily: "Helvetica-Bold", color: "#6b7280", textAlign: "right" },
   // Total row
   totalRow:   { flexDirection: "row", padding: "4 6", backgroundColor: "#f3f4f6", borderRadius: 3, marginTop: 2 },
-  totalLabel: { flex: 5.5, fontSize: 8, fontFamily: "Helvetica-Bold", color: "#374151" },
+  totalLabel: { flex: 7.7, fontSize: 8, fontFamily: "Helvetica-Bold", color: "#374151" },
   totalMonto: { flex: 1.5, fontSize: 8, fontFamily: "Helvetica-Bold", textAlign: "right" },
   // Resumen final
   resumenPage: { fontFamily: "Helvetica", fontSize: 10, padding: 40, color: "#1a1a1a" },
@@ -50,12 +52,12 @@ const styles = StyleSheet.create({
   resumenRow:    { flexDirection: "row", padding: "6 8", borderBottom: "0.5 solid #f3f4f6" },
   resumenRowAlt: { flexDirection: "row", padding: "6 8", borderBottom: "0.5 solid #f3f4f6", backgroundColor: "#f9fafb" },
   resumenTotalRow: { flexDirection: "row", padding: "8 8", backgroundColor: "#f3f4f6", borderRadius: 4, marginTop: 4 },
-  rColMes:  { flex: 2.5, fontSize: 9 },
-  rColVal:  { flex: 2, fontSize: 9, textAlign: "right" },
-  rColMesH: { flex: 2.5, fontSize: 8, fontFamily: "Helvetica-Bold", color: "#ffffff" },
-  rColValH: { flex: 2, fontSize: 8, fontFamily: "Helvetica-Bold", color: "#ffffff", textAlign: "right" },
-  rColMesT: { flex: 2.5, fontSize: 9, fontFamily: "Helvetica-Bold", color: "#111827" },
-  rColValT: { flex: 2, fontSize: 9, fontFamily: "Helvetica-Bold", textAlign: "right" },
+  rColMes:  { flex: 2, fontSize: 9 },
+  rColVal:  { flex: 1.8, fontSize: 9, textAlign: "right" },
+  rColMesH: { flex: 2, fontSize: 8, fontFamily: "Helvetica-Bold", color: "#ffffff" },
+  rColValH: { flex: 1.8, fontSize: 8, fontFamily: "Helvetica-Bold", color: "#ffffff", textAlign: "right" },
+  rColMesT: { flex: 2, fontSize: 9, fontFamily: "Helvetica-Bold", color: "#111827" },
+  rColValT: { flex: 1.8, fontSize: 9, fontFamily: "Helvetica-Bold", textAlign: "right" },
   // Footer
   footer:     { position: "absolute", bottom: 30, left: 40, right: 40, flexDirection: "row", justifyContent: "space-between" },
   footerText: { fontSize: 8, color: "#9ca3af" },
@@ -63,18 +65,38 @@ const styles = StyleSheet.create({
 
 function fmt(monto: number) { return `$${monto.toLocaleString("es-CL")}`; }
 function fmtFecha(f: string | Date) { return new Date(f).toLocaleDateString("es-CL"); }
+function fmtMetodo(m: string | null) {
+  if (m === "TRANSFERENCIA") return "Transferencia";
+  if (m === "EFECTIVO")      return "Efectivo";
+  return "—";
+}
+function colorMetodo(m: string | null) {
+  return m === "TRANSFERENCIA" ? "#15803d" : "#4b5563";
+}
 
-type GastoPagado = { numero: string; torre: string; mesesLabel: string; totalMonto: number };
-type Movimiento  = { id: number; descripcion: string; monto: number; fecha: string | Date };
-type MesDetalle  = { label: string; gastosPagados: GastoPagado[]; ingresos: Movimiento[]; egresos: Movimiento[]; totalGastos: number; totalIngresos: number; totalEgresos: number; balance: number; saldoApertura: number; saldoCierre: number };
-type Perfil      = { nombre: string; direccion: string; comuna: string; telefono: string } | null;
-type Totales     = { totalGastos: number; totalIngresos: number; totalEgresos: number; balance: number; saldoInicial: number; saldoFinal: number };
+type GastoPagado   = { numero: string; torre: string; mesesLabel: string; totalMonto: number; metodoPago: string | null };
+type PagoHistorico = { numero: string; torre: string; mesesLabel: string; cantMeses: number; totalMonto: number; metodoPago: string | null };
+type Movimiento    = { id: number; descripcion: string; monto: number; fecha: string | Date };
+type MesDetalle    = {
+  label: string;
+  gastosPagados: GastoPagado[];
+  pagosHistoricos: PagoHistorico[];
+  ingresos: Movimiento[];
+  egresos: Movimiento[];
+  totalGastos: number;
+  totalIngresos: number;
+  totalEgresos: number;
+  totalPagosHistoricos: number;
+  balance: number;
+  saldoApertura: number;
+  saldoCierre: number;
+};
+type Perfil  = { nombre: string; direccion: string; comuna: string; telefono: string } | null;
+type Totales = { totalGastos: number; totalIngresos: number; totalEgresos: number; totalPagosHistoricos: number; balance: number; saldoInicial: number; saldoFinal: number };
 
 type Props = { perfil: Perfil; periodo: string; meses: MesDetalle[]; totales: Totales };
 
 function PaginaMes({ perfil, mes, periodo, isFirst }: { perfil: Perfil; mes: MesDetalle; periodo: string; isFirst: boolean }) {
-  const fechaGen = new Date().toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" });
-
   return (
     <Page size="A4" style={styles.page}>
       {/* Header solo en primera página */}
@@ -85,7 +107,7 @@ function PaginaMes({ perfil, mes, periodo, isFirst }: { perfil: Perfil; mes: Mes
             {perfil?.direccion ? <Text style={styles.condoInfo}>{perfil.direccion}{perfil.comuna ? `, ${perfil.comuna}` : ""}</Text> : null}
           </View>
           <View>
-            <Text style={styles.reporteTitulo}>Reporte de Finanzas</Text>
+            <Text style={styles.reporteTitulo}>Balance Financiero</Text>
             <Text style={styles.reportePeriodo}>{periodo}</Text>
           </View>
         </View>
@@ -108,6 +130,10 @@ function PaginaMes({ perfil, mes, periodo, isFirst }: { perfil: Perfil; mes: Mes
           <Text style={[styles.cardValue, { color: "#16a34a" }]}>{fmt(mes.totalGastos)}</Text>
         </View>
         <View style={styles.card}>
+          <Text style={styles.cardLabel}>Deudas históricas</Text>
+          <Text style={[styles.cardValue, { color: "#16a34a" }]}>{fmt(mes.totalPagosHistoricos)}</Text>
+        </View>
+        <View style={styles.card}>
           <Text style={styles.cardLabel}>Otros ingresos</Text>
           <Text style={[styles.cardValue, { color: "#16a34a" }]}>{fmt(mes.totalIngresos)}</Text>
         </View>
@@ -116,14 +142,14 @@ function PaginaMes({ perfil, mes, periodo, isFirst }: { perfil: Perfil; mes: Mes
           <Text style={[styles.cardValue, { color: "#dc2626" }]}>{fmt(mes.totalEgresos)}</Text>
         </View>
       </View>
-      <View style={[styles.cards, { marginTop: 4 }]}> 
-        <View style={[styles.card, { flex: 1, minWidth: 0 }]}> 
+      <View style={[styles.cards, { marginTop: 4 }]}>
+        <View style={[styles.card, { flex: 1, minWidth: 0 }]}>
           <Text style={styles.cardLabel}>Saldo cierre</Text>
           <Text style={[styles.cardValue, { color: mes.saldoCierre >= 0 ? "#16a34a" : "#dc2626" }]}>{fmt(mes.saldoCierre)}</Text>
         </View>
       </View>
 
-      {/* Gastos comunes */}
+      {/* Gastos comunes agrupados por depto + método */}
       {mes.gastosPagados.length > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Gastos Comunes Cobrados</Text>
@@ -131,6 +157,7 @@ function PaginaMes({ perfil, mes, periodo, isFirst }: { perfil: Perfil; mes: Mes
             <Text style={styles.colDeptoH}>Depto.</Text>
             <Text style={styles.colTorreH}>Torre</Text>
             <Text style={styles.colMesesH}>Meses pagados</Text>
+            <Text style={styles.colMetodoH}>Método</Text>
             <Text style={styles.colMontoH}>Total</Text>
           </View>
           {mes.gastosPagados.map((g, i) => (
@@ -138,12 +165,40 @@ function PaginaMes({ perfil, mes, periodo, isFirst }: { perfil: Perfil; mes: Mes
               <Text style={[styles.colDepto, { color: "#374151" }]}>{g.numero}</Text>
               <Text style={[styles.colTorre, { color: "#6b7280" }]}>{g.torre}</Text>
               <Text style={[styles.colMeses, { color: "#6b7280" }]}>{g.mesesLabel}</Text>
+              <Text style={[styles.colMetodo, { color: colorMetodo(g.metodoPago) }]}>{fmtMetodo(g.metodoPago)}</Text>
               <Text style={[styles.colMonto, { color: "#16a34a" }]}>{fmt(g.totalMonto)}</Text>
             </View>
           ))}
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Total gastos comunes</Text>
             <Text style={[styles.totalMonto, { color: "#16a34a" }]}>{fmt(mes.totalGastos)}</Text>
+          </View>
+        </View>
+      )}
+
+      {/* Pago de deudas históricas */}
+      {mes.pagosHistoricos.length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Pago Deudas Históricas</Text>
+          <View style={styles.tableHeader}>
+            <Text style={styles.colDeptoH}>Depto.</Text>
+            <Text style={styles.colTorreH}>Torre</Text>
+            <Text style={styles.colMesesH}>Meses pagados</Text>
+            <Text style={styles.colMetodoH}>Método</Text>
+            <Text style={styles.colMontoH}>Total</Text>
+          </View>
+          {mes.pagosHistoricos.map((h, i) => (
+            <View key={i} style={styles.tableRow}>
+              <Text style={[styles.colDepto, { color: "#374151" }]}>{h.numero}</Text>
+              <Text style={[styles.colTorre, { color: "#6b7280" }]}>{h.torre}</Text>
+              <Text style={[styles.colMeses, { color: "#6b7280" }]}>{h.cantMeses} {h.cantMeses === 1 ? "mes" : "meses"} ({h.mesesLabel})</Text>
+              <Text style={[styles.colMetodo, { color: colorMetodo(h.metodoPago) }]}>{fmtMetodo(h.metodoPago)}</Text>
+              <Text style={[styles.colMonto, { color: "#16a34a" }]}>{fmt(h.totalMonto)}</Text>
+            </View>
+          ))}
+          <View style={styles.totalRow}>
+            <Text style={styles.totalLabel}>Total pago deudas históricas</Text>
+            <Text style={[styles.totalMonto, { color: "#16a34a" }]}>{fmt(mes.totalPagosHistoricos)}</Text>
           </View>
         </View>
       )}
@@ -226,6 +281,7 @@ export function ReporteFinanzasAnualPDF({ perfil, periodo, meses, totales }: Pro
         <View style={styles.resumenTableHeader}>
           <Text style={styles.rColMesH}>Mes</Text>
           <Text style={styles.rColValH}>Gastos comunes</Text>
+          <Text style={styles.rColValH}>Deudas hist.</Text>
           <Text style={styles.rColValH}>Otros ingresos</Text>
           <Text style={styles.rColValH}>Egresos</Text>
           <Text style={styles.rColValH}>Balance</Text>
@@ -235,7 +291,8 @@ export function ReporteFinanzasAnualPDF({ perfil, periodo, meses, totales }: Pro
           <View key={m.label} style={i % 2 === 0 ? styles.resumenRow : styles.resumenRowAlt}>
             <Text style={[styles.rColMes, { color: "#374151" }]}>{m.label}</Text>
             <Text style={[styles.rColVal, { color: "#16a34a" }]}>{fmt(m.totalGastos)}</Text>
-            <Text style={[styles.rColVal, { color: "#16a34a" }]}>{fmt(m.totalIngresos)}</Text>
+            <Text style={[styles.rColVal, { color: m.totalPagosHistoricos > 0 ? "#16a34a" : "#9ca3af" }]}>{fmt(m.totalPagosHistoricos)}</Text>
+            <Text style={[styles.rColVal, { color: m.totalIngresos > 0 ? "#16a34a" : "#9ca3af" }]}>{fmt(m.totalIngresos)}</Text>
             <Text style={[styles.rColVal, { color: m.totalEgresos > 0 ? "#dc2626" : "#9ca3af" }]}>{fmt(m.totalEgresos)}</Text>
             <Text style={[styles.rColVal, { color: m.balance >= 0 ? "#111827" : "#dc2626", fontFamily: "Helvetica-Bold" }]}>{fmt(m.balance)}</Text>
           </View>
@@ -244,17 +301,19 @@ export function ReporteFinanzasAnualPDF({ perfil, periodo, meses, totales }: Pro
         <View style={styles.resumenTotalRow}>
           <Text style={styles.rColMesT}>TOTAL PERÍODO</Text>
           <Text style={[styles.rColValT, { color: "#16a34a" }]}>{fmt(totales.totalGastos)}</Text>
+          <Text style={[styles.rColValT, { color: "#16a34a" }]}>{fmt(totales.totalPagosHistoricos)}</Text>
           <Text style={[styles.rColValT, { color: "#16a34a" }]}>{fmt(totales.totalIngresos)}</Text>
           <Text style={[styles.rColValT, { color: "#dc2626" }]}>{fmt(totales.totalEgresos)}</Text>
           <Text style={[styles.rColValT, { color: totales.balance >= 0 ? "#16a34a" : "#dc2626" }]}>{fmt(totales.balance)}</Text>
         </View>
-        <View style={[styles.resumenRow, { marginTop: 10, paddingTop: 10, borderTop: "0.5 solid #e5e7eb" }]}> 
-          <Text style={[styles.rColMes, { color: "#374151", flex: 6 }]}>Saldo apertura del período</Text>
-          <Text style={[styles.rColVal, { color: "#111827", flex: 2 }]}>{fmt(totales.saldoInicial)}</Text>
+
+        <View style={[styles.resumenRow, { marginTop: 10, paddingTop: 10, borderTop: "0.5 solid #e5e7eb" }]}>
+          <Text style={[styles.rColMes, { color: "#374151", flex: 8 }]}>Saldo apertura del período</Text>
+          <Text style={[styles.rColVal, { color: "#111827", flex: 1.8 }]}>{fmt(totales.saldoInicial)}</Text>
         </View>
-        <View style={[styles.resumenRowAlt]}> 
-          <Text style={[styles.rColMes, { color: "#374151", flex: 6 }]}>Saldo cierre del período</Text>
-          <Text style={[styles.rColVal, { color: totales.saldoFinal >= 0 ? "#16a34a" : "#dc2626", flex: 2 }]}>{fmt(totales.saldoFinal)}</Text>
+        <View style={styles.resumenRowAlt}>
+          <Text style={[styles.rColMes, { color: "#374151", flex: 8 }]}>Saldo cierre del período</Text>
+          <Text style={[styles.rColVal, { color: totales.saldoFinal >= 0 ? "#16a34a" : "#dc2626", flex: 1.8 }]}>{fmt(totales.saldoFinal)}</Text>
         </View>
 
         <View style={styles.footer} fixed>

@@ -33,17 +33,19 @@ const styles = StyleSheet.create({
   // Tabla
   tableHeader: { flexDirection: "row", backgroundColor: "#f3f4f6", padding: "6 8", borderRadius: 4, marginBottom: 2 },
   tableRow:    { flexDirection: "row", padding: "5 8", borderBottom: "0.5 solid #f3f4f6" },
-  colDepto:  { flex: 1.5, fontSize: 9 },
-  colTorre:  { flex: 2,   fontSize: 9 },
-  colMonto:  { flex: 1.5, fontSize: 9, textAlign: "right" },
-  colFecha:  { flex: 1.5, fontSize: 9, textAlign: "center" },
-  colDeptoH: { flex: 1.5, fontSize: 8, fontFamily: "Helvetica-Bold", color: "#6b7280" },
-  colTorreH: { flex: 2,   fontSize: 8, fontFamily: "Helvetica-Bold", color: "#6b7280" },
-  colMontoH: { flex: 1.5, fontSize: 8, fontFamily: "Helvetica-Bold", color: "#6b7280", textAlign: "right" },
-  colFechaH: { flex: 1.5, fontSize: 8, fontFamily: "Helvetica-Bold", color: "#6b7280", textAlign: "center" },
+  colDepto:   { flex: 1.5, fontSize: 9 },
+  colTorre:   { flex: 2,   fontSize: 9 },
+  colMetodo:  { flex: 1.5, fontSize: 9, textAlign: "center" },
+  colMonto:   { flex: 1.5, fontSize: 9, textAlign: "right" },
+  colFecha:   { flex: 1.5, fontSize: 9, textAlign: "center" },
+  colDeptoH:  { flex: 1.5, fontSize: 8, fontFamily: "Helvetica-Bold", color: "#6b7280" },
+  colTorreH:  { flex: 2,   fontSize: 8, fontFamily: "Helvetica-Bold", color: "#6b7280" },
+  colMetodoH: { flex: 1.5, fontSize: 8, fontFamily: "Helvetica-Bold", color: "#6b7280", textAlign: "center" },
+  colMontoH:  { flex: 1.5, fontSize: 8, fontFamily: "Helvetica-Bold", color: "#6b7280", textAlign: "right" },
+  colFechaH:  { flex: 1.5, fontSize: 8, fontFamily: "Helvetica-Bold", color: "#6b7280", textAlign: "center" },
   // Totales
   totalRow:   { flexDirection: "row", padding: "6 8", backgroundColor: "#f9fafb", borderRadius: 4, marginTop: 4 },
-  totalLabel: { flex: 5,   fontSize: 9, fontFamily: "Helvetica-Bold", color: "#374151" },
+  totalLabel: { flex: 6.5, fontSize: 9, fontFamily: "Helvetica-Bold", color: "#374151" },
   totalMonto: { flex: 1.5, fontSize: 10, fontFamily: "Helvetica-Bold", textAlign: "right" },
   // Footer
   footer:     { position: "absolute", bottom: 30, left: 40, right: 40, flexDirection: "row", justifyContent: "space-between" },
@@ -64,6 +66,7 @@ type Gasto = {
   monto: number;
   estadoPago: string;
   fechaPago: string | Date | null;
+  metodoPago: string | null;
   departamento: { numero: string; torre: { nombre: string } };
 };
 
@@ -83,21 +86,27 @@ type Props = {
   };
 };
 
-function TablaGastos({ gastos, colorMonto }: { gastos: Gasto[]; colorMonto: string }) {
+function TablaGastos({ gastos, colorMonto, showMetodo }: { gastos: Gasto[]; colorMonto: string; showMetodo?: boolean }) {
   return (
     <>
       <View style={styles.tableHeader}>
         <Text style={styles.colDeptoH}>Departamento</Text>
         <Text style={styles.colTorreH}>Torre</Text>
         <Text style={styles.colFechaH}>Fecha pago</Text>
+        {showMetodo && <Text style={styles.colMetodoH}>Método</Text>}
         <Text style={styles.colMontoH}>Monto</Text>
       </View>
       {gastos.map((g) => (
         <View key={g.id} style={styles.tableRow}>
           <Text style={[styles.colDepto, { color: "#374151" }]}>{g.departamento.numero || "S/N"}</Text>
-          <Text style={[styles.colTorre,  { color: "#6b7280" }]}>{g.departamento.torre.nombre}</Text>
-          <Text style={[styles.colFecha,  { color: "#6b7280" }]}>{formatFecha(g.fechaPago)}</Text>
-          <Text style={[styles.colMonto,  { color: colorMonto }]}>{formatMonto(g.monto)}</Text>
+          <Text style={[styles.colTorre, { color: "#6b7280" }]}>{g.departamento.torre.nombre}</Text>
+          <Text style={[styles.colFecha, { color: "#6b7280" }]}>{formatFecha(g.fechaPago)}</Text>
+          {showMetodo && (
+            <Text style={[styles.colMetodo, { color: g.metodoPago === "TRANSFERENCIA" ? "#15803d" : "#4b5563" }]}>
+              {g.metodoPago === "TRANSFERENCIA" ? "Transferencia" : g.metodoPago === "EFECTIVO" ? "Efectivo" : "—"}
+            </Text>
+          )}
+          <Text style={[styles.colMonto, { color: colorMonto }]}>{formatMonto(g.monto)}</Text>
         </View>
       ))}
     </>
@@ -150,7 +159,7 @@ export function ReporteGastosPDF({ perfil, mes, pagados, pendientes, atrasados, 
         {pagados.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Pagados ({pagados.length})</Text>
-            <TablaGastos gastos={pagados} colorMonto="#16a34a" />
+            <TablaGastos gastos={pagados} colorMonto="#16a34a" showMetodo />
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Total cobrado</Text>
               <Text style={[styles.totalMonto, { color: "#16a34a" }]}>{formatMonto(totales.montoPagado)}</Text>

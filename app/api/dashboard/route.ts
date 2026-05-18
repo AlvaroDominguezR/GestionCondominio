@@ -8,13 +8,13 @@ export async function GET() {
   const year  = hoy.getFullYear();
   const month = hoy.getMonth(); // 0-indexed
 
-  const inicioMes = new Date(year, month, 1);
-  const finMes    = new Date(year, month + 1, 1);
+  const inicioMes = new Date(Date.UTC(year, month, 1));
+  const finMes    = new Date(Date.UTC(year, month + 1, 1));
 
   // Inicio de hoy y fin de semana (7 días)
-  const inicioDia = new Date(year, month, hoy.getDate());
-  const finSemana = new Date(year, month, hoy.getDate() + 7);
-  const finFuturo = new Date(year + 1, month, hoy.getDate());
+  const inicioDia = new Date(Date.UTC(year, month, hoy.getDate()));
+  const finSemana = new Date(Date.UTC(year, month, hoy.getDate() + 7));
+  const finFuturo = new Date(Date.UTC(year + 1, month, hoy.getDate()));
 
   const [
     totalDeptos,

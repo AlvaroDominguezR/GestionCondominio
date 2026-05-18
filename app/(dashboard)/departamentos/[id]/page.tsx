@@ -22,6 +22,7 @@ type GastoComun = {
   periodo: string;
   estadoPago: string;
   fechaPago: string | null;
+  metodoPago: string | null;
 };
 
 type Depto = {
@@ -533,6 +534,9 @@ export default function DepartamentoPage({ params }: { params: Promise<{ id: str
                 className="text-gray-300 hover:text-gray-600"><Pencil className="w-3 h-3" /></button>
             </div>
           )}
+          <Link href={`/departamentos/${id}/deuda-historica`} className="text-sm font-semibold text-red-600 hover:underline">
+            {depto.deudaAnterior > 0 ? `$${depto.deudaAnterior.toLocaleString("es-CL")}` : "Sin deuda"}
+          </Link>
         </div>
       </div>
 
@@ -617,6 +621,7 @@ export default function DepartamentoPage({ params }: { params: Promise<{ id: str
                   <th className="text-left px-6 py-3 font-medium text-gray-500">Período</th>
                   <th className="text-left px-6 py-3 font-medium text-gray-500">Monto</th>
                   <th className="text-left px-6 py-3 font-medium text-gray-500">Estado</th>
+                  <th className="text-left px-6 py-3 font-medium text-gray-500">Método</th>
                   <th className="text-left px-6 py-3 font-medium text-gray-500">Fecha pago</th>
                 </tr>
               </thead>
@@ -632,6 +637,14 @@ export default function DepartamentoPage({ params }: { params: Promise<{ id: str
                                                          "bg-red-50 text-red-700"}`}>
                         {g.estadoPago.charAt(0) + g.estadoPago.slice(1).toLowerCase()}
                       </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      {g.metodoPago ? (
+                        <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full
+                          ${g.metodoPago === "TRANSFERENCIA" ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-600"}`}>
+                          {g.metodoPago === "TRANSFERENCIA" ? "Transferencia" : "Efectivo"}
+                        </span>
+                      ) : "—"}
                     </td>
                     <td className="px-6 py-4 text-gray-500">
                       {g.fechaPago ? new Date(g.fechaPago).toLocaleDateString("es-CL") : "—"}
