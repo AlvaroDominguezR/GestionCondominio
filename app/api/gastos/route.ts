@@ -18,8 +18,10 @@ export async function GET(req: Request) {
   const periodoFin    = new Date(Date.UTC(year, month, 1));
 
   // Marcar atrasados automáticamente solo si ya existe un cobro generado para ese período
+  // Usar hora local para el corte, no UTC, para evitar marcar ATRASADO antes de medianoche local
   const hoy = new Date();
-  if (periodoFin < hoy) {
+  const finMesLocal = new Date(year, month, 1);
+  if (finMesLocal <= hoy) {
     const cobrosGenerados = await prisma.gastoComun.count({
       where: { periodo: { gte: periodoInicio, lt: periodoFin } },
     });

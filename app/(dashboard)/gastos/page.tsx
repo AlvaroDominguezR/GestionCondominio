@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Receipt, CheckCircle2, Clock, AlertCircle, Settings, CreditCard, FileDown, Search } from "lucide-react";
 import Link from "next/link";
+import { ModalCodigoTransaccion } from "@/components/ModalCodigoTransaccion";
 
 type GastoDepto = {
   id: number;
@@ -75,7 +76,7 @@ function formatMes(periodo: string) {
 
 // ─── Modal Registrar Pago ───────────────────────────────────
 function ModalRegistrarPago({ onClose, onPagado }: { onClose: () => void; onPagado: () => Promise<void> }) {
-  const [paso, setPaso]                   = useState<"torre" | "depto" | "meses">("torre");
+  const [paso, setPaso]                   = useState<"torre" | "depto" | "meses" | "codigo">("torre");
   const [torres, setTorres]               = useState<Torre[]>([]);
   const [torreSeleccionada, setTorre]     = useState<Torre | null>(null);
   const [deptoSeleccionado, setDepto]     = useState<{ id: number; numero: string } | null>(null);
@@ -108,6 +109,14 @@ function ModalRegistrarPago({ onClose, onPagado }: { onClose: () => void; onPaga
 
   async function handleConfirmar() {
     if (mesesSeleccionados.length === 0) return;
+    if (metodoPago === "TRANSFERENCIA") {
+      setPaso("codigo");
+      return;
+    }
+    await ejecutarPago(null);
+  }
+
+  async function ejecutarPago(codigoTransaccion: string | null) {
     setGuardando(true);
     const seleccionados = meses
       .filter((m) => mesesSeleccionados.includes(m.key))
@@ -116,7 +125,7 @@ function ModalRegistrarPago({ onClose, onPagado }: { onClose: () => void; onPaga
     const res = await fetch("/api/gastos/registrar-pago", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ departamentoId: deptoSeleccionado?.id, mesesSeleccionados: seleccionados, metodoPago }),
+      body: JSON.stringify({ departamentoId: deptoSeleccionado?.id, mesesSeleccionados: seleccionados, metodoPago, codigoTransaccion }),
     });
 
     const data = await res.json();
@@ -134,6 +143,16 @@ function ModalRegistrarPago({ onClose, onPagado }: { onClose: () => void; onPaga
   const totalSeleccionado = meses
     .filter((m) => mesesSeleccionados.includes(m.key))
     .reduce((acc, m) => acc + m.monto, 0);
+
+  if (paso === "codigo") {
+    return (
+      <ModalCodigoTransaccion
+        loading={guardando}
+        onConfirm={(codigo) => ejecutarPago(codigo)}
+        onCancel={() => setPaso("meses")}
+      />
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">

@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useState, useEffect, use } from "react";
-import { Users, Plus, Trash2, AlertCircle, Pencil, UserCheck, Car, Check, X, Receipt, FileDown } from "lucide-react";
-import { crearResidente, eliminarResidente, editarResidente, definirDuenoDesdeResidente, definirDuenoExterno, agregarVehiculo, eliminarVehiculo, actualizarDeudaAnterior } from "./actions";
+import { Users, Plus, Trash2, AlertCircle, Pencil, UserCheck, Car, Receipt, FileDown, Ticket } from "lucide-react";
+import { crearResidente, eliminarResidente, editarResidente, definirDuenoDesdeResidente, definirDuenoExterno, agregarVehiculo, eliminarVehiculo } from "./actions";
 
 type Vehiculo = { id: number; patente: string; tipo: string };
 
@@ -23,6 +23,7 @@ type GastoComun = {
   estadoPago: string;
   fechaPago: string | null;
   metodoPago: string | null;
+  codigoTransaccion: string | null;
 };
 
 type Depto = {
@@ -31,7 +32,6 @@ type Depto = {
   tipoOcupacion: string;
   cantHabitantes: number;
   debeGastoComun: boolean;
-  deudaAnterior: number;
   torre: { id: number; nombre: string; sector: string };
   dueno: { id: number; nombre: string; rut: string; telefono: string | null } | null;
   residentes: Residente[];
@@ -410,16 +410,39 @@ function ModalAgregar({ depto, onClose }: { depto: Depto; onClose: () => void })
   );
 }
 
+// ─── Helpers ────────────────────────────────────────────────
+function getAnio(periodo: string): number {
+  if (/^\d{4}-\d{2}$/.test(periodo)) return Number(periodo.slice(0, 4));
+  return new Date(periodo).getUTCFullYear();
+}
+
+const ESTADOS_PAGADO = new Set(["PAGADO", "HISTORICO_PAGADO"]);
+
+function formatEstadoGasto(estado: string): string {
+  if (ESTADOS_PAGADO.has(estado)) return "Pagado";
+  if (estado === "PENDIENTE")     return "Pendiente";
+  if (estado === "ATRASADO")      return "Atrasado";
+  if (estado === "HISTORICO")     return "Histórico";
+  return estado.charAt(0) + estado.slice(1).toLowerCase();
+}
+
+function colorEstadoGasto(estado: string): string {
+  if (ESTADOS_PAGADO.has(estado)) return "bg-green-50 text-green-700";
+  if (estado === "PENDIENTE")     return "bg-yellow-50 text-yellow-700";
+  if (estado === "HISTORICO")     return "bg-orange-50 text-orange-700";
+  return "bg-red-50 text-red-700";
+}
+
 // ─── Página principal ───────────────────────────────────────
 export default function DepartamentoPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [depto, setDepto]                         = useState<Depto | null>(null);
-  const [modalAgregar, setModalAgregar]           = useState(false);
-  const [modalDueno, setModalDueno]               = useState(false);
-  const [modalVehiculo, setModalVehiculo]         = useState(false);
-  const [residenteEditando, setResidenteEditando] = useState<Residente | null>(null);
-  const [editandoDeuda, setEditandoDeuda]         = useState(false);
-  const [deudaInput, setDeudaInput]               = useState("");
+  const [modalAgregar, setModalAgregar]                   = useState(false);
+  const [modalDueno, setModalDueno]                       = useState(false);
+  const [modalVehiculo, setModalVehiculo]                 = useState(false);
+  const [anioFiltro, setAnioFiltro]                       = useState<number | null>(null);
+  const [seleccionadosVoucher, setSeleccionadosVoucher]   = useState<Set<number>>(new Set());
+  const [residenteEditando, setResidenteEditando]         = useState<Residente | null>(null);
   const [error, setError]                         = useState<string | null>(null);
   const [guardando, setGuardando]                 = useState(false);
   const [refresh, setRefresh]                     = useState(0);
@@ -435,6 +458,9 @@ export default function DepartamentoPage({ params }: { params: Promise<{ id: str
   const jefeHogar    = depto.residentes.find((r) => r.esJefeHogar);
   const jefeAsignado = !!jefeHogar;
   const totalVehiculos = depto.residentes.reduce((acc, r) => acc + r.vehiculos.length, 0);
+  const deudaHistoricaPendiente = (depto.gastosComunes ?? [])
+    .filter((g) => g.estadoPago === "HISTORICO")
+    .reduce((acc, g) => acc + g.monto, 0);
 
   async function handleEditarSubmit(formData: FormData) {
     if (!residenteEditando) return;
@@ -449,6 +475,37 @@ export default function DepartamentoPage({ params }: { params: Promise<{ id: str
 
   function handleReporte() {
     window.open(`/api/reportes/departamento?id=${id}`, "_blank");
+  }
+
+  // ── Voucher inline ──
+  const gastosPagadosAll   = (depto.gastosComunes ?? []).filter((g) => ESTADOS_PAGADO.has(g.estadoPago));
+  const aniosConPagos      = [...new Set(gastosPagadosAll.map((g) => getAnio(g.periodo)))].sort((a, b) => b - a);
+  const gastosFiltrados    = anioFiltro
+    ? (depto.gastosComunes ?? []).filter((g) => getAnio(g.periodo) === anioFiltro)
+    : (depto.gastosComunes ?? []);
+  const pagadosFiltrados   = gastosFiltrados.filter((g) => ESTADOS_PAGADO.has(g.estadoPago));
+  const todosVoucherSel    = pagadosFiltrados.length > 0 && pagadosFiltrados.every((g) => seleccionadosVoucher.has(g.id));
+  const totalVoucher       = gastosPagadosAll.filter((g) => seleccionadosVoucher.has(g.id)).reduce((acc, g) => acc + g.monto, 0);
+
+  function toggleVoucher(gastoId: number) {
+    setSeleccionadosVoucher((prev) => {
+      const next = new Set(prev);
+      next.has(gastoId) ? next.delete(gastoId) : next.add(gastoId);
+      return next;
+    });
+  }
+
+  function toggleTodosVoucher() {
+    if (todosVoucherSel) {
+      setSeleccionadosVoucher(new Set());
+    } else {
+      setSeleccionadosVoucher(new Set(pagadosFiltrados.map((g) => g.id)));
+    }
+  }
+
+  function handleGenerarVoucher() {
+    const ids = [...seleccionadosVoucher].join(",");
+    window.open(`/api/reportes/voucher?ids=${ids}`, "_blank");
   }
 
   return (
@@ -514,28 +571,9 @@ export default function DepartamentoPage({ params }: { params: Promise<{ id: str
         </div>
         <div className="bg-white border border-gray-200 rounded-xl p-5">
           <p className="text-xs text-gray-400 mb-1">Deuda anterior al sistema</p>
-          {editandoDeuda ? (
-            <div className="flex items-center gap-2 mt-1">
-              <input type="number" value={deudaInput} onChange={(e) => setDeudaInput(e.target.value)}
-                className="w-full border border-blue-400 rounded-md px-2 py-1 text-sm focus:outline-none" placeholder="0" />
-              <button onClick={async () => {
-                await actualizarDeudaAnterior(depto.id, parseFloat(deudaInput) || 0);
-                setEditandoDeuda(false);
-                setRefresh((n) => n + 1);
-              }} className="text-green-600 hover:text-green-800"><Check className="w-4 h-4" /></button>
-              <button onClick={() => setEditandoDeuda(false)} className="text-red-400 hover:text-red-600"><X className="w-4 h-4" /></button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 mt-1">
-              <p className={`text-sm font-semibold ${depto.deudaAnterior > 0 ? "text-red-600" : "text-gray-900"}`}>
-                {depto.deudaAnterior > 0 ? `$${depto.deudaAnterior.toLocaleString("es-CL")}` : "Sin deuda"}
-              </p>
-              <button onClick={() => { setDeudaInput(String(depto.deudaAnterior)); setEditandoDeuda(true); }}
-                className="text-gray-300 hover:text-gray-600"><Pencil className="w-3 h-3" /></button>
-            </div>
-          )}
-          <Link href={`/departamentos/${id}/deuda-historica`} className="text-sm font-semibold text-red-600 hover:underline">
-            {depto.deudaAnterior > 0 ? `$${depto.deudaAnterior.toLocaleString("es-CL")}` : "Sin deuda"}
+          <Link href={`/departamentos/${id}/deuda-historica`}
+            className={`text-sm font-semibold mt-1 block hover:underline ${deudaHistoricaPendiente > 0 ? "text-red-600" : "text-gray-400"}`}>
+            {deudaHistoricaPendiente > 0 ? `$${deudaHistoricaPendiente.toLocaleString("es-CL")}` : "Sin deuda"}
           </Link>
         </div>
       </div>
@@ -602,13 +640,49 @@ export default function DepartamentoPage({ params }: { params: Promise<{ id: str
 
       {/* Historial gastos comunes */}
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+
+        {/* Cabecera */}
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between gap-4">
           <div>
             <h2 className="font-semibold text-gray-900">Historial de gastos comunes</h2>
-            <p className="text-xs text-gray-400 mt-0.5">{depto.gastosComunes?.length ?? 0} registros</p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {seleccionadosVoucher.size > 0
+                ? `${seleccionadosVoucher.size} mes${seleccionadosVoucher.size > 1 ? "es" : ""} seleccionado${seleccionadosVoucher.size > 1 ? "s" : ""} · $${totalVoucher.toLocaleString("es-CL")}`
+                : `${depto.gastosComunes?.length ?? 0} registros`}
+            </p>
           </div>
-          <Receipt className="w-4 h-4 text-gray-400" />
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Filtros de año */}
+            {aniosConPagos.length > 0 && (
+              <div className="flex items-center gap-1.5">
+                {aniosConPagos.map((anio) => (
+                  <button key={anio}
+                    onClick={() => {
+                      setAnioFiltro(anioFiltro === anio ? null : anio);
+                      setSeleccionadosVoucher(new Set());
+                    }}
+                    className={`text-xs font-medium px-3 py-1.5 rounded-full border transition-colors
+                      ${anioFiltro === anio
+                        ? "bg-gray-900 border-gray-900 text-white"
+                        : "border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700"}`}>
+                    {anio}
+                  </button>
+                ))}
+              </div>
+            )}
+            {/* Botón generar voucher */}
+            {seleccionadosVoucher.size > 0 ? (
+              <button onClick={handleGenerarVoucher}
+                className="flex items-center gap-2 bg-gray-900 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors">
+                <Ticket className="w-4 h-4" />
+                Generar voucher ({seleccionadosVoucher.size})
+              </button>
+            ) : (
+              <Receipt className="w-4 h-4 text-gray-400" />
+            )}
+          </div>
         </div>
+
         {(depto.gastosComunes?.length ?? 0) === 0 ? (
           <div className="px-6 py-10 text-center text-sm text-gray-400">
             No hay gastos comunes registrados para este departamento.
@@ -618,39 +692,70 @@ export default function DepartamentoPage({ params }: { params: Promise<{ id: str
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50">
-                  <th className="text-left px-6 py-3 font-medium text-gray-500">Período</th>
-                  <th className="text-left px-6 py-3 font-medium text-gray-500">Monto</th>
-                  <th className="text-left px-6 py-3 font-medium text-gray-500">Estado</th>
-                  <th className="text-left px-6 py-3 font-medium text-gray-500">Método</th>
-                  <th className="text-left px-6 py-3 font-medium text-gray-500">Fecha pago</th>
+                  <th className="px-6 py-3 w-10">
+                    {pagadosFiltrados.length > 0 && (
+                      <input type="checkbox" checked={todosVoucherSel} onChange={toggleTodosVoucher}
+                        className="w-4 h-4 accent-gray-900 cursor-pointer"
+                        title="Seleccionar todos los pagados" />
+                    )}
+                  </th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500">Período</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500">Monto</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500">Estado</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500">Método</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500">Código trans.</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500">Fecha pago</th>
                 </tr>
               </thead>
               <tbody>
-                {(depto.gastosComunes ?? []).map((g, i) => (
-                  <tr key={g.id} className={`border-b border-gray-100 last:border-0 ${i % 2 === 0 ? "" : "bg-gray-50/50"}`}>
-                    <td className="px-6 py-4 text-gray-900 capitalize">{formatMes(g.periodo)}</td>
-                    <td className="px-6 py-4 text-gray-900">${g.monto.toLocaleString("es-CL")}</td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-block text-xs font-medium px-2.5 py-1 rounded-full
-                        ${g.estadoPago === "PAGADO"    ? "bg-green-50 text-green-700"   :
-                          g.estadoPago === "PENDIENTE" ? "bg-yellow-50 text-yellow-700" :
-                                                         "bg-red-50 text-red-700"}`}>
-                        {g.estadoPago.charAt(0) + g.estadoPago.slice(1).toLowerCase()}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      {g.metodoPago ? (
-                        <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full
-                          ${g.metodoPago === "TRANSFERENCIA" ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-600"}`}>
-                          {g.metodoPago === "TRANSFERENCIA" ? "Transferencia" : "Efectivo"}
+                {gastosFiltrados.map((g, i) => {
+                  const isPagado       = ESTADOS_PAGADO.has(g.estadoPago);
+                  const isSeleccionado = seleccionadosVoucher.has(g.id);
+                  return (
+                    <tr key={g.id}
+                      onClick={() => isPagado && toggleVoucher(g.id)}
+                      className={`border-b border-gray-100 last:border-0 transition-colors
+                        ${isPagado ? "cursor-pointer" : ""}
+                        ${isSeleccionado ? "bg-green-50/60" : i % 2 === 0 ? "" : "bg-gray-50/50"}
+                        ${isPagado && !isSeleccionado ? "hover:bg-gray-50" : ""}`}>
+                      <td className="px-6 py-4">
+                        {isPagado && (
+                          <input type="checkbox" checked={isSeleccionado}
+                            onChange={() => toggleVoucher(g.id)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-4 h-4 accent-gray-900 cursor-pointer" />
+                        )}
+                      </td>
+                      <td className="px-4 py-4 text-gray-900 capitalize">{formatMes(g.periodo)}</td>
+                      <td className="px-4 py-4 text-gray-900">${g.monto.toLocaleString("es-CL")}</td>
+                      <td className="px-4 py-4">
+                        <span className={`inline-block text-xs font-medium px-2.5 py-1 rounded-full ${colorEstadoGasto(g.estadoPago)}`}>
+                          {formatEstadoGasto(g.estadoPago)}
                         </span>
-                      ) : "—"}
-                    </td>
-                    <td className="px-6 py-4 text-gray-500">
-                      {g.fechaPago ? new Date(g.fechaPago).toLocaleDateString("es-CL") : "—"}
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="px-4 py-4">
+                        {g.metodoPago ? (
+                          <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full
+                            ${g.metodoPago === "TRANSFERENCIA" ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-600"}`}>
+                            {g.metodoPago === "TRANSFERENCIA" ? "Transferencia" : "Efectivo"}
+                          </span>
+                        ) : "—"}
+                      </td>
+                      <td className="px-4 py-4">
+                        {g.codigoTransaccion ? (
+                          <span className="inline-block text-xs font-mono font-semibold px-2 py-0.5 rounded bg-green-50 text-green-700 tracking-widest">
+                            {g.codigoTransaccion}
+                          </span>
+                        ) : (
+                          <span className="text-gray-300">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-4 text-gray-500">
+                        {g.fechaPago ? new Date(g.fechaPago).toLocaleDateString("es-CL") : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

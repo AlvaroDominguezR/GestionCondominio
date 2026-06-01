@@ -20,6 +20,11 @@ export async function crearTorre(formData: FormData) {
   const [numero, sector] = datos.data.torre.split("|");
   const nombre = `Torre ${numero}${sector}`;
  
+  const totalTorres = await prisma.torre.count();
+  if (totalTorres >= 18) {
+    return { error: "Se ha alcanzado el máximo de 18 torres permitidas." };
+  }
+
   const existe = await prisma.torre.findUnique({ where: { nombre } });
   if (existe) {
     return { error: `La ${nombre} ya está registrada.` };
@@ -45,7 +50,24 @@ export async function crearTorre(formData: FormData) {
 }
  
 export async function eliminarTorre(id: number) {
-  await prisma.departamento.deleteMany({ where: { torreId: id } });
+  const deptos = await prisma.departamento.findMany({ where: { torreId: id }, select: { id: true } });
+  const deptoIds = deptos.map((d) => d.id);
+
+  if (deptoIds.length > 0) {
+    const residentes = await prisma.residente.findMany({
+      where: { departamentoId: { in: deptoIds } },
+      select: { id: true },
+    });
+    const residenteIds = residentes.map((r) => r.id);
+
+    if (residenteIds.length > 0) {
+      await prisma.vehiculo.deleteMany({ where: { residenteId: { in: residenteIds } } });
+    }
+    await prisma.residente.deleteMany({ where: { departamentoId: { in: deptoIds } } });
+    await prisma.gastoComun.deleteMany({ where: { departamentoId: { in: deptoIds } } });
+    await prisma.departamento.deleteMany({ where: { torreId: id } });
+  }
+
   await prisma.torre.delete({ where: { id } });
   revalidatePath("/torres");
 }

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { TrendingUp, TrendingDown, Trash2, Plus, FileDown } from "lucide-react";
+import { ModalCodigoTransaccion } from "@/components/ModalCodigoTransaccion";
 
 type Movimiento = {
   id: number;
@@ -71,24 +72,44 @@ function BadgeMetodo({ metodo }: { metodo: string | null }) {
 function ModalMovimiento({ tipo, onClose, onGuardado }: { tipo: "ingreso" | "egreso"; onClose: () => void; onGuardado: () => void }) {
   const [descripcion, setDescripcion] = useState("");
   const [monto, setMonto]             = useState("");
-  const [fecha, setFecha]             = useState(new Date().toISOString().split("T")[0]);
+  const [fecha, setFecha]             = useState(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; });
   const [metodoPago, setMetodoPago]   = useState<"TRANSFERENCIA" | "EFECTIVO">("TRANSFERENCIA");
   const [guardando, setGuardando]     = useState(false);
   const [error, setError]             = useState<string | null>(null);
+  const [paso, setPaso]               = useState<"form" | "codigo">("form");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!descripcion || !monto) { setError("Completa todos los campos."); return; }
+    if (tipo === "ingreso" && metodoPago === "TRANSFERENCIA") {
+      setPaso("codigo");
+      return;
+    }
+    await guardar(null);
+  }
+
+  async function guardar(codigoTransaccion: string | null) {
     setGuardando(true);
     const res = await fetch(`/api/${tipo === "ingreso" ? "ingresos" : "egresos"}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ descripcion, monto: parseFloat(monto), fecha, metodoPago }),
+      body: JSON.stringify({ descripcion, monto: parseFloat(monto), fecha, metodoPago, codigoTransaccion }),
     });
     const data = await res.json();
-    if (data.error) { setError(data.error); setGuardando(false); return; }
+    if (data.error) { setError(data.error); setGuardando(false); setPaso("form"); return; }
     onGuardado();
     onClose();
+  }
+
+  if (paso === "codigo") {
+    return (
+      <ModalCodigoTransaccion
+        loading={guardando}
+        onConfirm={(codigo) => guardar(codigo)}
+        onCancel={() => setPaso("form")}
+        textoBoton="Guardar ingreso"
+      />
+    );
   }
 
   return (

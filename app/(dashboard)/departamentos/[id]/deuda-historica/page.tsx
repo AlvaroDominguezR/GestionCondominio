@@ -3,6 +3,7 @@
 import { useState, useEffect, use } from "react";
 import Link from "next/link";
 import { FileDown, Trash2, Plus, RotateCcw, CreditCard } from "lucide-react";
+import { ModalCodigoTransaccion } from "@/components/ModalCodigoTransaccion";
 
 
 type Gasto = {
@@ -22,7 +23,11 @@ const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto"
 
 function formatPeriodo(periodo: string) {
   const d = new Date(periodo);
-  return `${MESES[d.getMonth()]} ${d.getFullYear()}`;
+  return `${MESES[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+}
+
+function getAnio(periodo: string): number {
+  return new Date(periodo).getUTCFullYear();
 }
 
 export default function DeudaHistoricaPage({ params }: { params: Promise<{ id: string }> }) {
@@ -34,8 +39,10 @@ export default function DeudaHistoricaPage({ params }: { params: Promise<{ id: s
   const [generando, setGenerando]   = useState(false);
   const [pagando, setPagando]       = useState(false);
   const [seleccionados, setSeleccionados] = useState<Set<number>>(new Set());
-  const [metodoPago, setMetodoPago] = useState<"TRANSFERENCIA" | "EFECTIVO">("TRANSFERENCIA");
-  const [refresh, setRefresh]       = useState(0);
+  const [metodoPago, setMetodoPago]     = useState<"TRANSFERENCIA" | "EFECTIVO">("TRANSFERENCIA");
+  const [anioFiltro, setAnioFiltro]     = useState<number | null>(null);
+  const [refresh, setRefresh]           = useState(0);
+  const [modalCodigo, setModalCodigo]   = useState(false);
 
   useEffect(() => {
     fetch(`/api/deuda-historica?departamentoId=${id}`)
@@ -57,9 +64,11 @@ export default function DeudaHistoricaPage({ params }: { params: Promise<{ id: s
     setRefresh((n) => n + 1);
   }
 
-  const pendientes = gastos.filter((g) => g.estadoPago === "HISTORICO");
+  const aniosDisponibles   = [...new Set(gastos.map((g) => getAnio(g.periodo)))].sort((a, b) => b - a);
+  const gastosFiltrados    = anioFiltro ? gastos.filter((g) => getAnio(g.periodo) === anioFiltro) : gastos;
+  const pendientes         = gastosFiltrados.filter((g) => g.estadoPago === "HISTORICO");
   const todosSeleccionados = pendientes.length > 0 && pendientes.every((g) => seleccionados.has(g.id));
-  const totalSeleccionado  = pendientes.filter((g) => seleccionados.has(g.id)).reduce((acc, g) => acc + g.monto, 0);
+  const totalSeleccionado  = gastos.filter((g) => seleccionados.has(g.id)).reduce((acc, g) => acc + g.monto, 0);
 
   function toggleSeleccion(id: number) {
     setSeleccionados((prev) => {
@@ -79,14 +88,22 @@ export default function DeudaHistoricaPage({ params }: { params: Promise<{ id: s
 
   async function handlePagarSeleccionados() {
     if (seleccionados.size === 0) return;
+    if (metodoPago === "TRANSFERENCIA") {
+      setModalCodigo(true);
+      return;
+    }
     if (!confirm(
       `¿Registrar pago de ${seleccionados.size} mes${seleccionados.size > 1 ? "es" : ""} por $${totalSeleccionado.toLocaleString("es-CL")} en total?\n\nEsto sumará al balance de finanzas del mes actual.`
     )) return;
+    await ejecutarPago(null);
+  }
+
+  async function ejecutarPago(codigoTransaccion: string | null) {
     setPagando(true);
     await fetch("/api/deuda-historica", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ gastoIds: Array.from(seleccionados), metodoPago }),
+      body: JSON.stringify({ gastoIds: Array.from(seleccionados), metodoPago, codigoTransaccion }),
     });
     setSeleccionados(new Set());
     setPagando(false);
@@ -219,6 +236,26 @@ export default function DeudaHistoricaPage({ params }: { params: Promise<{ id: s
                   : "Selecciona los meses con deuda para registrar el pago"}
               </p>
             </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {/* Filtros de año */}
+              {aniosDisponibles.length > 1 && (
+                <div className="flex items-center gap-1.5">
+                  {aniosDisponibles.map((anio) => (
+                    <button key={anio}
+                      onClick={() => {
+                        setAnioFiltro(anioFiltro === anio ? null : anio);
+                        setSeleccionados(new Set());
+                      }}
+                      className={`text-xs font-medium px-3 py-1.5 rounded-full border transition-colors
+                        ${anioFiltro === anio
+                          ? "bg-gray-900 border-gray-900 text-white"
+                          : "border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700"}`}>
+                      {anio}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             {seleccionados.size > 0 && (
               <div className="flex items-center gap-3 shrink-0">
                 <div className="flex gap-1.5">
@@ -264,7 +301,7 @@ export default function DeudaHistoricaPage({ params }: { params: Promise<{ id: s
                 </tr>
               </thead>
               <tbody>
-                {gastos.map((g, i) => {
+                {gastosFiltrados.map((g, i) => {
                   const isPendiente = g.estadoPago === "HISTORICO";
                   const isSeleccionado = seleccionados.has(g.id);
                   return (
@@ -325,6 +362,14 @@ export default function DeudaHistoricaPage({ params }: { params: Promise<{ id: s
           <p className="text-sm text-gray-400">No hay registros históricos para este departamento.</p>
           <p className="text-xs text-gray-400 mt-1">Selecciona un rango de fechas y presiona "Registrar meses".</p>
         </div>
+      )}
+
+      {modalCodigo && (
+        <ModalCodigoTransaccion
+          loading={pagando}
+          onConfirm={(codigo) => { setModalCodigo(false); ejecutarPago(codigo); }}
+          onCancel={() => setModalCodigo(false)}
+        />
       )}
 
     </div>

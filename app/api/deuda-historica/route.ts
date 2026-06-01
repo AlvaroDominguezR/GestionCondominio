@@ -56,7 +56,7 @@ export async function POST(req: Request) {
 const MESES_ES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 
 export async function PATCH(req: Request) {
-  const { gastoIds, revertirId, metodoPago } = await req.json();
+  const { gastoIds, revertirId, metodoPago, codigoTransaccion } = await req.json();
 
   // Revertir pago individual
   if (revertirId !== undefined) {
@@ -82,6 +82,7 @@ export async function PATCH(req: Request) {
   });
 
   const metodo = metodoPago === "EFECTIVO" ? "EFECTIVO" : "TRANSFERENCIA";
+  const codigo = metodo === "TRANSFERENCIA" ? (codigoTransaccion ?? null) : null;
   const ahora = new Date();
   await prisma.$transaction([
     ...gastos.map((g) => {
@@ -93,13 +94,14 @@ export async function PATCH(req: Request) {
           monto: g.monto,
           fecha: ahora,
           metodoPago: metodo,
+          codigoTransaccion: codigo,
         },
       });
     }),
     ...gastos.map((g) =>
       prisma.gastoComun.update({
         where: { id: g.id },
-        data: { estadoPago: "HISTORICO_PAGADO", fechaPago: ahora },
+        data: { estadoPago: "HISTORICO_PAGADO", fechaPago: ahora, metodoPago: metodo, codigoTransaccion: codigo },
       })
     ),
   ]);
@@ -109,6 +111,10 @@ export async function PATCH(req: Request) {
 
 export async function DELETE(req: Request) {
   const { departamentoId } = await req.json();
+
+  if (!departamentoId || typeof departamentoId !== "number") {
+    return NextResponse.json({ error: "departamentoId requerido" }, { status: 400 });
+  }
 
   await prisma.gastoComun.deleteMany({
     where: { departamentoId, estadoPago: { in: ["HISTORICO", "HISTORICO_PAGADO"] } },

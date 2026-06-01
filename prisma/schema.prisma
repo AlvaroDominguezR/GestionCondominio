@@ -129,12 +129,13 @@ model Vehiculo {
 // estadoPago: "PENDIENTE" | "PAGADO" | "ATRASADO"
 // ─────────────────────────────────────────────
 model GastoComun {
-  id             Int          @id @default(autoincrement())
-  monto          Float
-  periodo        DateTime     // Primer día del mes: 2024-03-01
-  estadoPago     String       @default("PENDIENTE") // "PENDIENTE" | "PAGADO" | "ATRASADO"
-  fechaPago      DateTime?
-  metodoPago     String?      // "EFECTIVO" | "TRANSFERENCIA", null si pendiente
+  id                Int          @id @default(autoincrement())
+  monto             Float
+  periodo           DateTime     // Primer día del mes: 2024-03-01
+  estadoPago        String       @default("PENDIENTE") // "PENDIENTE" | "PAGADO" | "ATRASADO"
+  fechaPago         DateTime?
+  metodoPago        String?      // "EFECTIVO" | "TRANSFERENCIA", null si pendiente
+  codigoTransaccion String?      // Últimos 4 caracteres del comprobante de transferencia
 
   // FK → Departamento
   departamentoId Int
@@ -165,13 +166,14 @@ model Configuracion {
 // Ingreso
 // ─────────────────────────────────────────────
 model Ingreso {
-  id          Int      @id @default(autoincrement())
-  descripcion String
-  monto       Float
-  fecha       DateTime @default(now())
-  metodoPago  String   @default("TRANSFERENCIA") // "EFECTIVO" | "TRANSFERENCIA"
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                Int      @id @default(autoincrement())
+  descripcion       String
+  monto             Float
+  fecha             DateTime @default(now())
+  metodoPago        String   @default("TRANSFERENCIA") // "EFECTIVO" | "TRANSFERENCIA"
+  codigoTransaccion String?  // Últimos 4 caracteres del comprobante de transferencia
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }
 
 // ─────────────────────────────────────────────

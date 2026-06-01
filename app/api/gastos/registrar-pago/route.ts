@@ -49,12 +49,13 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const { departamentoId, mesesSeleccionados, metodoPago } = await req.json();
+  const { departamentoId, mesesSeleccionados, metodoPago, codigoTransaccion } = await req.json();
 
   const config = await prisma.configuracion.findFirst();
   if (!config) return NextResponse.json({ error: "Sin configuración" }, { status: 400 });
 
   const metodo = metodoPago === "EFECTIVO" ? "EFECTIVO" : "TRANSFERENCIA";
+  const codigo = metodo === "TRANSFERENCIA" ? (codigoTransaccion ?? null) : null;
   const fechaPago = new Date();
 
   for (const mes of mesesSeleccionados) {
@@ -73,7 +74,7 @@ export async function POST(req: Request) {
       if (gasto.estadoPago !== "PAGADO") {
         await prisma.gastoComun.update({
           where: { id: gasto.id },
-          data: { estadoPago: "PAGADO", fechaPago, metodoPago: metodo },
+          data: { estadoPago: "PAGADO", fechaPago, metodoPago: metodo, codigoTransaccion: codigo },
         });
       }
     } else {
@@ -85,6 +86,7 @@ export async function POST(req: Request) {
           estadoPago: "PAGADO",
           fechaPago,
           metodoPago: metodo,
+          codigoTransaccion: codigo,
         },
       });
     }

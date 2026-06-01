@@ -23,6 +23,9 @@ const DuenoExternoSchema = z.object({
 export async function crearResidente(departamentoId: number, formData: FormData) {
   const esJefeHogar = formData.get("esJefeHogar") === "true";
 
+  const totalActual = await prisma.residente.count({ where: { departamentoId } });
+  if (totalActual >= 8) return { error: "El departamento ya tiene el máximo de 8 residentes." };
+
   const datos = ResidenteSchema.safeParse({
     nombre:        formData.get("nombre"),
     apellido:      formData.get("apellido"),
@@ -105,6 +108,7 @@ export async function editarResidente(residenteId: number, departamentoId: numbe
 }
 
 export async function eliminarResidente(residenteId: number, departamentoId: number) {
+  await prisma.vehiculo.deleteMany({ where: { residenteId } });
   await prisma.residente.delete({ where: { id: residenteId } });
   const total = await prisma.residente.count({ where: { departamentoId } });
   await prisma.departamento.update({ where: { id: departamentoId }, data: { cantHabitantes: total } });
